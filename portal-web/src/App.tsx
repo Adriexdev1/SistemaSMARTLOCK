@@ -1,9 +1,14 @@
 //Librerias para el enrutamiento de la aplicacion 
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 //Funciones de las paginas de la aplicacion
-import Dashboard from './pages/Dashboard'
 import Login from './pages/Login'
 import DashboardLayout from './layouts/DashboardLayout'
+import Usuarios from './pages/Usuarios'
+import Citas from './pages/Citas'
+import Historial from './pages/Historial'
+import Incidentes from './pages/Incidentes'
+import Perfil from './pages/Perfil'
+import Inicio from './pages/Inicio'
 
 export default function App() {
   return (
@@ -14,13 +19,13 @@ export default function App() {
 
           {/* Rutas de la pagina principal del dashboard */}
           <Route element={<DashboardLayout />}>
-           <Route path="/" element={<Navigate to="/dashboard" replace />} />
-           <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/usuarios" element={<div>Usuarios</div>} />
-          <Route path="/eventos" element={<div>Eventos</div>} />
-          <Route path="/accesos" element={<div>Historial</div>} />
-          <Route path="/incidentes" element={<div>Incidentes</div>} />
-          <Route path="/perfil" element={<div>Perfil</div>} />
+           <Route path="/" element={<Navigate to="/inicio" replace />} />
+           <Route path="/inicio" element={<Inicio/>} />
+          <Route path="/usuarios" element={<Usuarios />} />
+          <Route path="/eventos" element={<Citas />} />
+          <Route path="/historial" element={<Historial />} />
+          <Route path="/incidentes" element={<Incidentes />} />
+          <Route path="/perfil" element={<Perfil />} />
           </Route>
         </Routes>
     </BrowserRouter>

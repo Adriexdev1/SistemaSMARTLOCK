@@ -1,7 +1,9 @@
     //Liberia de herramientas para navegacion en la pagina web
     import {Link, useLocation} from 'react-router-dom'
     //Liberia de iconos para la barra lateral
-    import {House, Users, Calendar, ShieldCheck, AlertTriangle, User, LockKeyhole} from 'lucide-react'
+    import {House, Users, Calendar, RotateCcwClock, AlertTriangle, User, LockKeyhole,LogOut} from 'lucide-react'
+    //Libreria para navegacion en la pagina web
+    import { useNavigate } from 'react-router-dom'
 
     //Funcion para la barra lateral de la pagina web
     export function Sidebar() {
@@ -10,21 +12,31 @@
         
         //Funcion con todos los elementos del menu de la barra lateral de la pagina web
         const menuItems = [
-            { name: 'Inicio', path: '/dashboard', icon: House },
+            { name: 'Inicio', path: '/inicio', icon: House },
             { name: 'Usuarios', path: '/usuarios', icon: Users },
             { name: 'Citas / Eventos', path: '/eventos', icon: Calendar },
-            { name: 'Accesos', path: '/accesos', icon: ShieldCheck },
+            { name: 'Historial', path: '/historial', icon: RotateCcwClock },
             { name: 'Incidentes', path: '/incidentes', icon: AlertTriangle },
             { name: 'Perfil', path: '/perfil', icon: User },
         ]
 
+        //Constante para volver al inicio de sesion
+        const navigate = useNavigate()
+        
+        //Funcion encargada de cerrar sesion y redirigir al inicio de sesion
+        function handleLogout() {
+            //Envia al inicio de sesion 
+            navigate('/login')
+        }
+
+
         return (
             //Contenedor central para la estructura de la barra lateral
-            <aside className="w-64 bg-slate-800 text-slate-100 flex-shrink-0">
+            <aside className="flex h-screen w-60 flex-col bg-[#111827] text-slate-100">
                 {/* Contenedor de la lista de elementos del menu de la barra lateral */}
                 <div>
                     {/*Contenedor para el titulo de la barra lateral*/}
-                    <div className="flex items-center gap-3 px-2 py-3 border-b border-slate-700 mb-6">
+                    <div className="flex items-center gap-3 px-6 py-5 border-b border-slate-700 mb-6">
                         <div className="w-10 h-10 bg-amber-500 px-2.5 py-1 rounded-lg font-bold text-white flex items-center justify-center shrink-10"><LockKeyhole size={32} color="black" strokeWidth={4}/></div>
                         {/* Contenedor para el titulo y subtitulo de la barra lateral */}
                         <div className="flex flex-col">
@@ -33,7 +45,7 @@
                         </div>
                     </div>
                     {/* Contenedor para la lista de elementos del menu de la barra lateral */}
-                    <nav className="space-y-1">
+                    <nav className="space-y-1 px-2">
                         {menuItems.map((item) => {
                             //Constante para determinar el icono
                             const Icon = item.icon
@@ -44,9 +56,9 @@
                             <Link
                                 key={item.path}
                                 to={item.path}
-                                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-base font-medium transition-colors border-r- ${
                                     isActive
-                                    ? 'bg-blue-600 text-white'
+                                    ? 'text-amber-400 bg-amber-500/10 border-amber-400 border'
                                     :  'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
                                 }`}
                             >
@@ -56,6 +68,18 @@
                         )
                     })}
                     </nav>
+                    </div>
+                    {/* Contenedor para boton de cerrar sesion*/}
+                    <div className="mt-auto border-t border-slate-700 pt-1">
+                        <div className="px-2 py-2">
+                            {/* Boton para cerrar sesion */}
+                            <button type="button"
+                            onClick={handleLogout}
+                            className="flex w-full items-center gap-3 px-3 py-2.5 text-base font-medium text-slate-400 hover:bg-red-500/40 hover:text-red-300 rounded-lg transition-colors duration-500">
+                                <LogOut className="w-5 h-5" />
+                                Cerrar Sesión 
+                            </button>
+                        </div>
                     </div>
             </aside>
         )
