@@ -37,14 +37,14 @@ export function Header(){
 
     return (
         //Contenedor principal para la cabecera
-        <header className="h-14 border-b border-slate-800 bg-slate-900/50 backdrop-blur px-6 flex items-center justify-between">
+        <header className="flex h-14 items-center justify-between border-b border-gray-200 bg-white px-6 shadow-sm">
             {/*Titulo de la cabecera*/}
             <div className="flex flex-col">
-                <h1 className="text-lg font-semibold text-slate-400">{currentPage}</h1>
+                <h1 className="text-lg font-semibold text-slate-800">{currentPage}</h1>
                 <span className="text-sm text-slate-500">Control de Acceso industrial</span>
             </div>
             <div className="flex items-center gap-4">
-                <button className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors">
+                <button className="rounded-lg p-2 text-slate-500 transition-colors hover:bg-gray-100 hover:text-slate-800">
                     <Bell className="w-5 h-5" />
                 </button>
 
@@ -60,16 +60,16 @@ export function Header(){
 
                     {/*Menu desplegable*/}
                     {isMenuOpen && (
-                        <div className="absolute right-0 top-full z-50 mt-2 w-48 rounded-lg bg-slate-800 p-2 shadow-lg">
-                            <span className="block w-full border-b text-center text-base font-medium text-slate-400">Administrador</span>
+                        <div className="absolute right-0 top-full z-50 mt-2 w-48 rounded-lg border border-gray-200 bg-white p-2 shadow-lg">
+                            <span className="block w-full border-b border-gray-200 pb-2 text-center text-base font-medium text-slate-700">Administrador</span>
                             <Link 
                             to="/perfil"
                             onClick={() => setIsMenuOpen(false)}
-                            className="block rounded px-3 py-2 text-sm text-slate-300 hover:bg-slate-700">Perfil</Link>
+                            className="block rounded px-3 py-2 text-sm text-slate-600 hover:bg-gray-100">Perfil</Link>
                             <button
                              type="button"
                              onClick={handleLogout}
-                             className="w-full rounded px-3 py-2 text-left text-sm text-red-300 hover:bg-red-500/40">Cerrar Sesión</button>
+                             className="w-full rounded px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50">Cerrar Sesión</button>
                         </div>
                     )}
                 </div>
