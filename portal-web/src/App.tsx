@@ -9,13 +9,16 @@ import Historial from './pages/Historial'
 import Incidentes from './pages/Incidentes'
 import Perfil from './pages/Perfil'
 import Inicio from './pages/Inicio'
+import AuthLayout from './layouts/AuthLayout'
 
 export default function App() {
   return (
     <BrowserRouter>
         <Routes>
           {/* Ruta de la pagina de inicio de sesion */}
-          <Route path="/login" element={<Login />} />
+          <Route element={<AuthLayout/>}>
+             <Route path="/login" element={<Login />} />
+          </Route>
 
           {/* Rutas de la pagina principal del dashboard */}
           <Route element={<DashboardLayout />}>
