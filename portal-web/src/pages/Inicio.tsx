@@ -11,10 +11,11 @@ export default function Inicio() {
       {/*Seccion superior*/}
       <section>
         <h1 className="text-lg font-semibold text-slate-800">Bienvenido, Jesus Herrera</h1>
-        <p className="text-md text-slate-400">Administrador. Planta Industrial NL</p>
+        <p className="text-sm text-slate-400 sm:text-base">Administrador. Planta Industrial NL</p>
       </section>
 
       {/*Seccion de tarjetas con informacion relevante*/}
+      {/*Las tarjetas pasan de una columna en móvil a cuatro en pantallas amplias*/}
       <section className="grid grid-cols-1 gap-4 py-5 sm:grid-cols-2 xl:grid-cols-4">
         <CartaEstadistica icon={Users} iconClassName="bg-blue-500" title="Empleados" value="100" subtitle="Activos"/>
         <CartaEstadistica icon={CalendarDays} iconClassName="bg-emerald-500" title="Accesos hoy" value="8" subtitle="Programados"/>
@@ -22,6 +23,7 @@ export default function Inicio() {
         <CartaEstadistica icon={AlertTriangle} iconClassName="bg-rose-500" title="Incidentes" value="3" subtitle="Pendientes"/>
       </section>
 
+      {/*Los paneles se apilan en teléfono y quedan lado a lado desde xl*/}
       <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <ActividadReciente/>
         <ProximasVisitas/>

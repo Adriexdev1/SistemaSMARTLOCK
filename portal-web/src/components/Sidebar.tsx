@@ -6,7 +6,12 @@
     import { useNavigate } from 'react-router-dom'
 
     //Funcion para la barra lateral de la pagina web
-    export function Sidebar() {
+    type SidebarProps = {
+        abierto: boolean
+        alCerrar: () => void
+    }
+
+    export function Sidebar({ abierto, alCerrar }: SidebarProps) {
         //Constante para obtener la ubicacion actual de la pagina web
         const location = useLocation()
         
@@ -31,8 +36,17 @@
 
 
         return (
-            //Contenedor central para la estructura de la barra lateral
-            <aside className="flex h-screen w-60 flex-col bg-[#111827] text-slate-100">
+            <>
+            {abierto && (
+                <button
+                    type="button"
+                    aria-label="Cerrar menú de navegación"
+                    onClick={alCerrar}
+                    className="fixed inset-0 z-40 bg-slate-950/40 md:hidden"
+                />
+            )}
+            {/*En teléfono la barra se abre sobre el contenido; desde md queda fija al lado*/}
+            <aside className={`fixed inset-y-0 left-0 z-50 flex h-dvh w-60 shrink-0 flex-col bg-[#111827] text-slate-100 transition-transform duration-200 md:static md:z-auto md:h-screen md:translate-x-0 ${abierto ? 'translate-x-0' : '-translate-x-full'}`}>
                 {/* Contenedor de la lista de elementos del menu de la barra lateral */}
                 <div>
                     {/*Contenedor para el titulo de la barra lateral*/}
@@ -56,6 +70,7 @@
                             <Link
                                 key={item.path}
                                 to={item.path}
+                                onClick={alCerrar}
                                 className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-base font-medium transition-colors border-r- ${
                                     isActive
                                     ? 'text-amber-400 bg-amber-500/10 border-amber-400 border'
@@ -82,5 +97,6 @@
                         </div>
                     </div>
             </aside>
+            </>
         )
     }

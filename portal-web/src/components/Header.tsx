@@ -1,5 +1,5 @@
 //Liberia de iconos para la cabecera
-import {Bell, User} from "lucide-react";
+import {Bell, Menu, User} from "lucide-react";
 import { useState } from "react";
 //Liberia para determinar la ubicacion dentro de la pagina web
 import {Link, useLocation} from "react-router-dom";
@@ -17,7 +17,11 @@ const pageName: Record<string, string> = {
     '/perfil': 'Perfil',
 }
 
-export function Header(){
+type HeaderProps = {
+    alAbrirMenu: () => void
+}
+
+export function Header({ alAbrirMenu }: HeaderProps){
     //Constante para determinar la ubicacion actual en la pagina
     const location = useLocation();
     
@@ -37,13 +41,19 @@ export function Header(){
 
     return (
         //Contenedor principal para la cabecera
-        <header className="flex h-14 items-center justify-between border-b border-gray-200 bg-white px-6 shadow-sm">
+        <header className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-gray-200 bg-white px-3 shadow-sm sm:px-6">
             {/*Titulo de la cabecera*/}
-            <div className="flex flex-col">
-                <h1 className="text-lg font-semibold text-slate-800">{currentPage}</h1>
-                <span className="text-sm text-slate-500">Control de Acceso industrial</span>
+            <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+                {/*El botón de menú solo aparece en teléfono; md recupera la navegación lateral fija*/}
+                <button type="button" onClick={alAbrirMenu} aria-label="Abrir menú de navegación" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-slate-600 hover:bg-slate-100 md:hidden">
+                    <Menu size={20} />
+                </button>
+                <div className="flex min-w-0 flex-col">
+                    <h1 className="truncate text-base font-semibold text-slate-800 sm:text-lg">{currentPage}</h1>
+                    <span className="hidden truncate text-xs text-slate-500 sm:block sm:text-sm">Control de Acceso industrial</span>
+                </div>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex shrink-0 items-center gap-1 sm:gap-4">
                 <button className="rounded-lg p-2 text-slate-500 transition-colors hover:bg-gray-100 hover:text-slate-800">
                     <Bell className="w-5 h-5" />
                 </button>
