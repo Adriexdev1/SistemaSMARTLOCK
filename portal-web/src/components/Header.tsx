@@ -26,7 +26,9 @@ export function Header({ alAbrirMenu }: HeaderProps){
     const location = useLocation();
     
     //Constante que determina basandose en la ubicacion actual el nombre a mostrar en la cabecera
-    const currentPage = pageName[location.pathname] ?? 'Error';
+    const currentPage = location.pathname.startsWith('/eventos/')
+        ? 'Citas / Eventos'
+        : pageName[location.pathname] ?? 'Error';
     
     //Constantes para determinar si el menu de usuario esta abierto o cerrado
     const [isMenuOpen, setIsMenuOpen] = useState(false);

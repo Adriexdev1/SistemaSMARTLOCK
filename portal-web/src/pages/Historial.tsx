@@ -3,6 +3,7 @@ import Paginacion from "../components/PieTabla"
 import DataTable from "../components/TablaBase"
 import { useState } from "react"
 import FiltroHistorial, {type ValoresFiltrosHistorial} from "../components/componentesPaginas/FiltrosHistorial"
+import * as XLSX from 'xlsx'
 
 //Definicion de estructura para tabla
 type Historial = {
@@ -148,6 +149,28 @@ export default function Historial(){
         (registro) => registro.resultado === 'Rechazado'
     ).length
 
+    //Funcion para trabajar con los datos en un excel
+    function exportarHistorial() {
+      const datosExcel = registrosFiltrados.map((registro) => {
+        const [anio, mes, dia] = registro.fecha.split('-')
+        
+        return {
+          Fecha: `${dia}/${mes}/${anio}`,
+          Hora: registro.hora,
+          Usuario: registro.usuario,
+          Cita: `#${registro.cita}`,
+          Resultado: registro.resultado,
+          Método: registro.metodo_acceso,
+        }
+  })
+
+  const hoja = XLSX.utils.json_to_sheet(datosExcel)
+  const libro = XLSX.utils.book_new()
+
+  XLSX.utils.book_append_sheet(libro, hoja, 'Historial de accesos')
+  XLSX.writeFile(libro, 'historial-accesos.xlsx')
+}
+
     return (
         <>
         <section className="mb-5 flex flex-wrap items-center justify-between gap-4">
@@ -162,6 +185,7 @@ export default function Historial(){
 
       <button
         type="button"
+        onClick={exportarHistorial}
         className="inline-flex items-center gap-2 rounded-md bg-green-300 px-4 py-2 font-medium text-slate-900 hover:bg-green-500">
         
         <Download size={18} aria-hidden="true" />

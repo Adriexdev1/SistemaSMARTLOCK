@@ -1,45 +1,16 @@
-import { Eye, QrCode, Pencil, Trash, Plus } from "lucide-react"
+import { Eye, QrCode, Pencil, Trash, Plus, X } from "lucide-react"
+import { QRCodeSVG } from 'qrcode.react'
+import { useNavigate } from 'react-router-dom'
+import { useCitas } from '../contexts/CitasContext'
+import type { Cita } from '../contexts/CitasContext'
 //Importacion de tabla base
 import DataTable  from "../components/TablaBase"
 //Importacion de pie de tabla
 import Paginacion from "../components/PieTabla"
 //Libreria para realizar cambios en la informacion mostrada al realizar busquedas
-import { useState } from "react"
+import { useState, type FormEvent } from "react"
 //Importacion de la barra de busqueda
 import BarraBusqueda from "../components/componentesPaginas/BarraBusqueda"
-
-//Definicion de estructura para tabla
-type Cita = {
-  id: number
-  fecha: string
-  hora: string
-  visitante: string
-  tipo: string
-  estado: 'Activo' | 'Completado'
-  qr: 'Generado' | 'Pendiente' | 'Utilizado'
-}
-
-//Variable con datos a mostrar en la tabla
-const citas: Cita[] = [
-  {
-    id: 1,
-    fecha: '2026-08-28',
-    hora: '08:00',
-    visitante: 'Carlos Mendoza',
-    tipo: 'Turno matutino',
-    estado: 'Activo',
-    qr: 'Generado',
-  },
-  {
-    id: 2,
-    fecha: '2026-08-28',
-    hora: '09:30',
-    visitante: 'Grupo Logística NL',
-    tipo: 'Visita proveedor',
-    estado: 'Activo',
-    qr: 'Pendiente',
-  },
-]
 
 //Constante para aplicar color al estado de la visita
 const coloresEstado: Record<Cita['estado'], string> = {
@@ -55,7 +26,13 @@ const coloresQr: Record<Cita['qr'], string> = {
 }
 
 //Variable para estructura de Datos en la tabla
-const columnasCitas = [
+function crearColumnasCitas(
+  verCita: (cita: Cita) => void,
+  verQr: (cita: Cita) => void,
+  editarCita: (cita: Cita) => void,
+  confirmarBorrado: (cita: Cita) => void,
+) {
+  return [
   {
     header: 'Fecha',
     width: '12%',
@@ -116,25 +93,26 @@ const columnasCitas = [
     //Contenedor central de los iconos
     <div className="flex items-center gap-1">
         {/*Boton de ver cita*/}
-        <button type="button" aria-label={`Ver cita ${cita.id}`} className="flex h-8 w-8 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-slate-400">
+        <button type="button" onClick={() => verCita(cita)} aria-label={`Ver cita ${cita.id}`} className="flex h-8 w-8 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-slate-400">
             <Eye size={16} strokeWidth={2.5} />
         </button>
         {/*Boton de ver QR*/}
-        <button type="button" aria-label={`Mostrar QR de cita ${cita.id}`} className="flex h-8 w-8 items-center justify-center rounded-md text-violet-600 transition-colors hover:bg-violet-100 hover:text-violet-800 focus-visible:outline-2 focus-visible:outline-violet-400">
+        <button type="button" onClick={() => verQr(cita)} aria-label={`Mostrar QR de cita ${cita.id}`} className="flex h-8 w-8 items-center justify-center rounded-md text-violet-600 transition-colors hover:bg-violet-100 hover:text-violet-800 focus-visible:outline-2 focus-visible:outline-violet-400">
             <QrCode size={16} strokeWidth={2.5}/>
         </button>
         {/*Boton de editar cita*/}
-        <button type="button" aria-label={`Editar cita ${cita.id}`} className="flex h-8 w-8 items-center justify-center rounded-md text-blue-600 transition-colors hover:bg-blue-100 hover:text-blue-800 focus-visible:outline-2 focus-visible:outline-blue-400">
+        <button type="button" onClick={() => editarCita(cita)} aria-label={`Editar cita ${cita.id}`} className="flex h-8 w-8 items-center justify-center rounded-md text-blue-600 transition-colors hover:bg-blue-100 hover:text-blue-800 focus-visible:outline-2 focus-visible:outline-blue-400">
             <Pencil size={16} strokeWidth={2.5}/>
         </button>
         {/*Boton de eliminar cita*/}
-        <button type="button" aria-label={`Eliminar cita ${cita.id}`} className="flex h-8 w-8 items-center justify-center rounded-md text-rose-600 transition-colors hover:bg-rose-100 hover:text-rose-800 focus-visible:outline-2 focus-visible:outline-rose-400">
+        <button type="button" onClick={() => confirmarBorrado(cita)} aria-label={`Eliminar cita ${cita.id}`} className="flex h-8 w-8 items-center justify-center rounded-md text-rose-600 transition-colors hover:bg-rose-100 hover:text-rose-800 focus-visible:outline-2 focus-visible:outline-rose-400">
             <Trash size={16} strokeWidth={2.5}/>
             </button>
     </div>
     ),
   },
-]
+  ]
+}
 
 //Funcion para ignorar mayusculas y acentos en las busquedas
 function normalizar(texto: string) {
@@ -146,6 +124,22 @@ function normalizar(texto: string) {
 }
 
 export default function Citas(){
+  //Constantes para llevar acabo acciones con las citas
+  const navigate = useNavigate()
+  const { citas, agregarCita,  eliminarCita } = useCitas()
+  const [citaQr, setCitaQr] = useState<Cita | null>(null)
+  const [citaAEliminar, setCitaAEliminar] = useState<Cita | null>(null)
+
+  //Apartado visual para agregar las citas
+  const [modalNuevoAbierto, setModalNuevoAbierto] = useState(false)
+  const [nuevoAcceso, setNuevoAcceso] = useState({
+    visitante: '',
+    tipo: '',
+    fecha: '',
+    hora: '',
+    horaFin: '',
+  })
+
     //Constantes para llevar acabo las busquedas dentro de las citas
     const [busqueda, setBusqueda] = useState('')
     const [estado, setEstado] = useState('Todos')
@@ -159,9 +153,9 @@ export default function Citas(){
          const fechaLegible = new Date(`${cita.fecha}T00:00:00`).toLocaleDateString('es-MX')
          
          //Campos utilizados en las busquedas
-         const campos = normalizar(
-            `${cita.id} ${cita.fecha} ${fechaLegible} ${cita.hora} ` +
-            `${cita.visitante} ${cita.tipo} ${cita.estado} ${cita.qr}`
+        const campos = normalizar(
+          `${cita.id} ${cita.fecha} ${fechaLegible} ${cita.hora} ${cita.horaFin} ` +
+          `${cita.visitante} ${cita.tipo} ${cita.estado} ${cita.qr}`
         )
 
         //Termino para realizar la busqueda y encontrar las coincidencias
@@ -182,7 +176,40 @@ export default function Citas(){
     const pagina = Math.min(paginaActual, totalPaginas)
     const inicio = (pagina - 1) * tamanoPagina
     const citasPagina = citasFiltradas.slice(inicio, inicio + tamanoPagina)
+    const columnasCitas = crearColumnasCitas(
+      (cita) => navigate(`/eventos/${cita.id}`),
+      (cita) => setCitaQr(cita),
+      (cita) => navigate(`/eventos/${cita.id}?editar=1`),
+      (cita) => setCitaAEliminar(cita),
+    )
 
+    function borrarCita() {
+      if (!citaAEliminar) return
+      eliminarCita(citaAEliminar.id)
+      setCitaAEliminar(null)
+    }
+
+    //Funcion encargada de manejar el formulario de nuevas citas
+    function registrarAcceso(evento: FormEvent<HTMLFormElement>) {
+      evento.preventDefault()
+      
+      agregarCita({
+        ...nuevoAcceso,
+        estado: 'Activo',
+        qr: 'Pendiente',        
+        qrToken: '',        
+        historial: [],
+      })
+      
+      setNuevoAcceso({
+        visitante: '',
+        tipo: '',
+        fecha: '',
+        hora: '',
+        horaFin: '',
+      })
+  setModalNuevoAbierto(false)
+}
 return (
   <>
   {/*En móvil los filtros se apilan y en pantallas sm se alinean en una fila*/}
@@ -198,6 +225,7 @@ return (
 
       <button
         type="button"
+        onClick={() => setModalNuevoAbierto(true)}
         className="inline-flex items-center gap-2 rounded-md bg-amber-500 px-4 py-2 font-medium text-slate-950 hover:bg-amber-400"
       >
         <Plus size={18} aria-hidden="true" />
@@ -256,6 +284,153 @@ return (
         }
       />
     </div>
+
+    {/*Funcionalidad del modal para nuevos accesos*/}
+    {modalNuevoAbierto && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4">
+        <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="nuevo-acceso-titulo"
+        className="max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-5 shadow-xl">
+          
+        <h2 id="nuevo-acceso-titulo" className="text-lg font-semibold text-slate-900">
+          Nuevo acceso
+        </h2>
+
+      <form onSubmit={registrarAcceso} className="mt-5 space-y-4">
+        <label className="block text-sm text-slate-600">
+          Visitante / Empleado
+          <input
+            required
+            value={nuevoAcceso.visitante}
+            onChange={(evento) =>
+              setNuevoAcceso({ ...nuevoAcceso, visitante: evento.target.value })
+            }
+            className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3"
+          />
+        </label>
+
+        <label className="block text-sm text-slate-600">
+          Tipo de acceso
+          <input
+            required
+            value={nuevoAcceso.tipo}
+            onChange={(evento) =>
+              setNuevoAcceso({ ...nuevoAcceso, tipo: evento.target.value })
+            }
+            className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3"
+          />
+        </label>
+
+        <label className="block text-sm text-slate-600">
+          Fecha
+          <input
+            required
+            type="date"
+            value={nuevoAcceso.fecha}
+            onChange={(evento) =>
+              setNuevoAcceso({ ...nuevoAcceso, fecha: evento.target.value })
+            }
+            className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3"
+          />
+        </label>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <label className="block text-sm text-slate-600">
+            Hora de inicio
+            <input
+              required
+              type="time"
+              value={nuevoAcceso.hora}
+              onChange={(evento) =>
+                setNuevoAcceso({ ...nuevoAcceso, hora: evento.target.value })
+              }
+              className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3"
+            />
+          </label>
+
+          <label className="block text-sm text-slate-600">
+            Hora de fin
+            <input
+              required
+              type="time"
+              value={nuevoAcceso.horaFin}
+              onChange={(evento) =>
+                setNuevoAcceso({ ...nuevoAcceso, horaFin: evento.target.value })
+              }
+              className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3"
+            />
+          </label>
+        </div>
+
+        <div className="flex flex-wrap justify-end gap-2 pt-2">
+          <button
+            type="button"
+            onClick={() => setModalNuevoAbierto(false)}
+            className="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-600"
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950"
+          >
+            Crear acceso
+          </button>
+        </div>
+      </form>
+    </section>
+  </div>
+)}
+
+    {/*Funcionalidad de codigos QR*/}
+    {citaQr && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4" role="presentation" onMouseDown={(evento) => {
+        if (evento.target === evento.currentTarget) setCitaQr(null)
+      }}>
+        <section role="dialog" aria-modal="true" aria-labelledby="qr-dialog-title" className="w-full max-w-sm rounded-xl bg-white p-5 shadow-xl">
+          <div className="mb-5 flex items-center justify-between">
+            <h2 id="qr-dialog-title" className="text-lg font-semibold text-slate-900">Código QR del acceso #{citaQr.id}</h2>
+            <button type="button" onClick={() => setCitaQr(null)} aria-label="Cerrar QR" className="rounded-md p-2 text-slate-500 hover:bg-slate-100">
+              <X size={18} />
+            </button>
+          </div>
+          {citaQr.qr === 'Generado' ? (
+            <div className="flex flex-col items-center gap-4">
+              <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+                <QRCodeSVG value={citaQr.qrToken} size={220} level="M" includeMargin />
+              </div>
+              <p className="text-center text-sm text-slate-500">
+                QR para <span className="font-medium text-slate-800">{citaQr.visitante}</span>
+              </p>
+              <p className="text-center text-xs text-amber-700">Código de demostración; todavía no está vinculado a la API.</p>
+            </div>
+          ) : (
+            <div className="rounded-lg bg-amber-50 p-4 text-sm text-amber-800">
+              Este acceso todavía no tiene un código QR generado.
+            </div>
+          )}
+        </section>
+      </div>
+    )}
+
+    {citaAEliminar && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4" role="presentation" onMouseDown={(evento) => {
+        if (evento.target === evento.currentTarget) setCitaAEliminar(null)
+      }}>
+        <section role="alertdialog" aria-modal="true" aria-labelledby="delete-dialog-title" aria-describedby="delete-dialog-description" className="w-full max-w-md rounded-xl bg-white p-5 shadow-xl">
+          <h2 id="delete-dialog-title" className="text-lg font-semibold text-slate-900">¿Eliminar este acceso?</h2>
+          <p id="delete-dialog-description" className="mt-2 text-sm text-slate-600">
+            Se eliminará la cita de {citaAEliminar.visitante}. Esta acción no se puede deshacer.
+          </p>
+          <div className="mt-6 flex justify-end gap-2">
+            <button type="button" onClick={() => setCitaAEliminar(null)} className="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50">Cancelar</button>
+            <button type="button" onClick={borrarCita} className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700">Eliminar acceso</button>
+          </div>
+        </section>
+      </div>
+    )}
   </>
 )
 }
