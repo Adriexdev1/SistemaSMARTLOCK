@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { Check, KeyRound, LockKeyhole, Pencil, ShieldCheck, X } from 'lucide-react'
+import { actualizarEstadoPinSesion, actualizarLongitudContrasenaSesion, guardarUsuarioSesion, obtenerUsuarioSesion } from '../utils/usuarioSesion'
 
 type DatosPerfil = {
     nombre: string
@@ -8,14 +9,7 @@ type DatosPerfil = {
     rol: string
 }
 
-type PanelSeguridad = 'contrasena' | 'pin' | null
-
-const datosIniciales: DatosPerfil = {
-    nombre: 'Jesús Herrera Valdez',
-    correo: 'admin@smartlock.com',
-    telefono: '+52 (844) 123 4567',
-    rol: 'Administrador',
-}
+type PanelSeguridad = 'contrasena' | 'pin' | 'eliminar-pin' | null
 
 function inicialesDe(nombre: string) {
     return nombre
@@ -27,29 +21,202 @@ function inicialesDe(nombre: string) {
 }
 
 export default function Perfil() {
-    const [perfil, setPerfil] = useState(datosIniciales)
-    const [perfilBorrador, setPerfilBorrador] = useState(datosIniciales)
+    const [perfil, setPerfil] = useState<DatosPerfil>(() => {
+        const usuario = obtenerUsuarioSesion()
+        return {
+            nombre: usuario?.nombreUsuario ?? 'Usuario',
+            correo: usuario?.correoUsuario ?? '',
+            telefono: usuario?.telefonoUsuario ?? 'No registrado',
+            rol: usuario?.rol ?? 'Sin rol asignado',
+        }
+    })
+    const [perfilBorrador, setPerfilBorrador] = useState(perfil)
     const [editandoPerfil, setEditandoPerfil] = useState(false)
+    const [contrasenaPerfil, setContrasenaPerfil] = useState('')
+    const [guardandoPerfil, setGuardandoPerfil] = useState(false)
+    const [errorPerfil, setErrorPerfil] = useState('')
     const [panelSeguridad, setPanelSeguridad] = useState<PanelSeguridad>(null)
     const [mensaje, setMensaje] = useState('')
+    const [errorPin, setErrorPin] = useState('')
+    const [contrasenaActual, setContrasenaActual] = useState('')
+    const [nuevaContrasena, setNuevaContrasena] = useState('')
+    const [nuevoPin, setNuevoPin] = useState('')
+    const [pinConfigurado, setPinConfigurado] = useState(() => Boolean(obtenerUsuarioSesion()?.tienePinConfigurado))
+    const [guardandoPin, setGuardandoPin] = useState(false)
+    const [guardandoContrasena, setGuardandoContrasena] = useState(false)
+    const [errorContrasena, setErrorContrasena] = useState('')
+    const [longitudContrasena, setLongitudContrasena] = useState(() => obtenerUsuarioSesion()?.contrasenaCaracteres ?? 0)
 
-    function guardarPerfil(evento: FormEvent<HTMLFormElement>) {
+    async function guardarPerfil(evento: FormEvent<HTMLFormElement>) {
         evento.preventDefault()
-        setPerfil(perfilBorrador)
-        setEditandoPerfil(false)
-        setMensaje('La información del perfil se actualizó.')
+        setGuardandoPerfil(true)
+        setErrorPerfil('')
+
+        try {
+            const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+            const usuario = obtenerUsuarioSesion()
+            if (!usuario) {
+                setErrorPerfil('Tu sesión terminó. Inicia sesión nuevamente.')
+                return
+            }
+
+            const cambios = {
+                nombreUsuario: perfilBorrador.nombre.trim(),
+                correoUsuario: perfilBorrador.correo.trim(),
+                telefonoUsuario: perfilBorrador.telefono.trim() || null,
+            }
+            const respuesta = await fetch(`${apiUrl}/api/auth/profile`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    idUsuario: usuario.idUsuario,
+                    ...cambios,
+                    contrasenaActual: contrasenaPerfil,
+                }),
+            })
+
+            if (!respuesta.ok) {
+                setErrorPerfil(respuesta.status === 401
+                    ? 'La contraseña actual no es correcta.'
+                    : respuesta.status === 409
+                        ? 'Ese correo ya está registrado por otro usuario.'
+                        : respuesta.status === 404
+                            ? 'No se encontró el usuario en la base de datos.'
+                            : 'No se pudo guardar la información.')
+                return
+            }
+
+            setPerfil({ ...perfilBorrador, ...cambios, telefono: cambios.telefonoUsuario ?? '' })
+            guardarUsuarioSesion({ ...usuario, ...cambios })
+            setContrasenaPerfil('')
+            setEditandoPerfil(false)
+            setMensaje('La información del perfil se guardó correctamente.')
+        } catch {
+            setErrorPerfil('No se pudo conectar con la API.')
+        } finally {
+            setGuardandoPerfil(false)
+        }
     }
 
     function alternarEdicion() {
         setPerfilBorrador(perfil)
         setEditandoPerfil((actual) => !actual)
+        setContrasenaPerfil('')
+        setErrorPerfil('')
         setMensaje('')
     }
 
-    function guardarSeguridad(evento: FormEvent<HTMLFormElement>) {
+    async function guardarSeguridad(evento: FormEvent<HTMLFormElement>) {
         evento.preventDefault()
-        setPanelSeguridad(null)
-        setMensaje(panelSeguridad === 'pin' ? 'La configuración del PIN se guardó.' : 'La contraseña se actualizó.')
+        setGuardandoContrasena(true)
+        setErrorContrasena('')
+
+        try {
+            const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+            const usuario = obtenerUsuarioSesion()
+            const respuesta = await fetch(`${apiUrl}/api/auth/password`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    idUsuario: usuario?.idUsuario,
+                    contrasenaActual,
+                    nuevaContrasena,
+                }),
+            })
+
+            if (!respuesta.ok) {
+                setErrorContrasena(respuesta.status === 401
+                    ? 'La contraseña actual no es correcta.'
+                    : 'No se pudo actualizar la contraseña.')
+                return
+            }
+
+            const longitudNueva = Array.from(nuevaContrasena).length
+            setLongitudContrasena(longitudNueva)
+            actualizarLongitudContrasenaSesion(longitudNueva)
+            setPanelSeguridad(null)
+            setContrasenaActual('')
+            setNuevaContrasena('')
+            setMensaje('La contraseña se actualizó correctamente.')
+        } catch {
+            setErrorContrasena('No se pudo conectar con la API.')
+        } finally {
+            setGuardandoContrasena(false)
+        }
+    }
+
+    async function guardarPin(evento: FormEvent<HTMLFormElement>) {
+        evento.preventDefault()
+        setGuardandoPin(true)
+        setErrorPin('')
+
+        try {
+            const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+            const usuario = obtenerUsuarioSesion()
+            const respuesta = await fetch(`${apiUrl}/api/auth/pin`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    idUsuario: usuario?.idUsuario,
+                    contrasenaActual,
+                    pin: nuevoPin,
+                }),
+            })
+
+            if (!respuesta.ok) {
+                setErrorPin(respuesta.status === 401
+                    ? 'La contraseña actual no es correcta.'
+                    : 'No se pudo guardar el PIN.')
+                return
+            }
+
+            setPinConfigurado(true)
+            actualizarEstadoPinSesion(true)
+            setPanelSeguridad(null)
+            setContrasenaActual('')
+            setNuevoPin('')
+            setMensaje('El PIN se guardó de forma segura.')
+        } catch {
+            setErrorPin('No se pudo conectar con la API.')
+        } finally {
+            setGuardandoPin(false)
+        }
+    }
+
+    async function eliminarPin(evento: FormEvent<HTMLFormElement>) {
+        evento.preventDefault()
+        setGuardandoPin(true)
+        setErrorPin('')
+
+        try {
+            const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+            const usuario = obtenerUsuarioSesion()
+            const respuesta = await fetch(`${apiUrl}/api/auth/pin`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    idUsuario: usuario?.idUsuario,
+                    contrasenaActual,
+                }),
+            })
+
+            if (!respuesta.ok) {
+                setErrorPin(respuesta.status === 401
+                    ? 'La contraseña actual no es correcta.'
+                    : 'No se pudo quitar el PIN.')
+                return
+            }
+
+            setPinConfigurado(false)
+            actualizarEstadoPinSesion(false)
+            setPanelSeguridad(null)
+            setContrasenaActual('')
+            setMensaje('El PIN se quitó. El acceso QR no solicitará PIN.')
+        } catch {
+            setErrorPin('No se pudo conectar con la API.')
+        } finally {
+            setGuardandoPin(false)
+        }
     }
 
     const campoClase = 'mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100'
@@ -96,9 +263,14 @@ export default function Perfil() {
                                     Teléfono
                                     <input value={perfilBorrador.telefono} onChange={(evento) => setPerfilBorrador({ ...perfilBorrador, telefono: evento.target.value })} className={campoClase} />
                                 </label>
+                                <label className="text-sm text-slate-500 sm:col-span-2">
+                                    Confirma tu contraseña actual para guardar
+                                    <input required type="password" autoComplete="current-password" value={contrasenaPerfil} onChange={(evento) => setContrasenaPerfil(evento.target.value)} className={campoClase} />
+                                </label>
+                                {errorPerfil && <p role="alert" className="text-sm text-rose-600 sm:col-span-2">{errorPerfil}</p>}
                                 <div className="flex items-end justify-end sm:col-span-2">
-                                    <button type="submit" className="inline-flex h-10 items-center gap-2 rounded-lg bg-amber-500 px-4 text-sm font-semibold text-slate-950 hover:bg-amber-400">
-                                        <Check size={16} /> Guardar cambios
+                                    <button type="submit" disabled={guardandoPerfil} className="inline-flex h-10 items-center gap-2 rounded-lg bg-amber-500 px-4 text-sm font-semibold text-slate-950 hover:bg-amber-400 disabled:cursor-wait disabled:opacity-60">
+                                        <Check size={16} /> {guardandoPerfil ? 'Guardando...' : 'Guardar cambios'}
                                     </button>
                                 </div>
                             </form>
@@ -141,7 +313,11 @@ export default function Perfil() {
                                 </span>
                                 <div>
                                     <p className="text-sm font-medium text-slate-800">Contraseña</p>
-                                    <p className="mt-1 text-sm tracking-[0.2em] text-slate-400">••••••••••••</p>
+                                    <p className="mt-1 text-sm tracking-[0.2em] text-slate-400" aria-label="Contraseña oculta">
+                                        {longitudContrasena > 0
+                                            ? '•'.repeat(longitudContrasena)
+                                            : 'Vuelve a iniciar sesión para cargar su longitud'}
+                                    </p>
                                 </div>
                             </div>
                             <button
@@ -160,32 +336,88 @@ export default function Perfil() {
                                 </span>
                                 <div>
                                     <p className="text-sm font-medium text-slate-800">PIN de acceso</p>
-                                    <p className="mt-1 text-sm font-medium text-emerald-600">PIN habilitado</p>
+                                    <p className={`mt-1 text-sm font-medium ${pinConfigurado ? 'text-emerald-600' : 'text-slate-500'}`}>
+                                        {pinConfigurado ? 'PIN habilitado' : 'Sin PIN configurado'}
+                                    </p>
                                 </div>
                             </div>
                             <button
                                 type="button"
-                                onClick={() => setPanelSeguridad(panelSeguridad === 'pin' ? null : 'pin')}
+                                onClick={() => {
+                                    setPanelSeguridad(panelSeguridad === 'pin' ? null : 'pin')
+                                    setErrorPin('')
+                                    setMensaje('')
+                                }}
                                 className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-600 transition-colors hover:bg-slate-50"
                             >
-                                Configurar PIN
+                                {pinConfigurado ? 'Cambiar PIN' : 'Configurar PIN'}
                             </button>
+                            {pinConfigurado && (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setPanelSeguridad(panelSeguridad === 'eliminar-pin' ? null : 'eliminar-pin')
+                                        setErrorPin('')
+                                        setMensaje('')
+                                    }}
+                                    className="rounded-lg border border-rose-200 px-3 py-2 text-sm text-rose-700 transition-colors hover:bg-rose-50"
+                                >
+                                    Quitar PIN
+                                </button>
+                            )}
                         </div>
                     </div>
 
                     {panelSeguridad && (
-                        <form onSubmit={guardarSeguridad} className="mt-2 grid gap-4 rounded-lg bg-slate-50 p-4 sm:grid-cols-2">
+                        <form
+                            onSubmit={panelSeguridad === 'pin' ? guardarPin : panelSeguridad === 'eliminar-pin' ? eliminarPin : guardarSeguridad}
+                            className="mt-2 grid gap-4 rounded-lg bg-slate-50 p-4 sm:grid-cols-2"
+                        >
                             {panelSeguridad === 'contrasena' ? (
                                 <>
-                                    <label className="text-sm text-slate-600">Contraseña actual<input required type="password" autoComplete="current-password" className={campoClase} /></label>
-                                    <label className="text-sm text-slate-600">Nueva contraseña<input required type="password" minLength={8} autoComplete="new-password" className={campoClase} /></label>
+                                    <label className="text-sm text-slate-600">
+                                        Contraseña actual
+                                        <input required type="password" autoComplete="current-password" value={contrasenaActual} onChange={(evento) => setContrasenaActual(evento.target.value)} className={campoClase} />
+                                    </label>
+                                    <label className="text-sm text-slate-600">
+                                        Nueva contraseña
+                                        <input required type="password" minLength={8} maxLength={100} autoComplete="new-password" value={nuevaContrasena} onChange={(evento) => setNuevaContrasena(evento.target.value)} className={campoClase} />
+                                    </label>
+                                </>
+                            ) : panelSeguridad === 'pin' ? (
+                                <>
+                                    <label className="text-sm text-slate-600 sm:col-span-2">
+                                        Contraseña actual
+                                        <input required type="password" autoComplete="current-password" value={contrasenaActual} onChange={(evento) => setContrasenaActual(evento.target.value)} className={campoClase} />
+                                    </label>
+                                    <label className="text-sm text-slate-600 sm:col-span-2">
+                                        Nuevo PIN
+                                        <input required type="password" inputMode="numeric" pattern="[0-9]{4,8}" minLength={4} maxLength={8} value={nuevoPin} onChange={(evento) => setNuevoPin(evento.target.value)} placeholder="4 a 8 dígitos" className={campoClase} />
+                                    </label>
                                 </>
                             ) : (
-                                <label className="text-sm text-slate-600 sm:col-span-2">Nuevo PIN<input required type="password" inputMode="numeric" pattern="[0-9]{4,8}" minLength={4} maxLength={8} placeholder="4 a 8 dígitos" className={campoClase} /></label>
+                                <label className="text-sm text-slate-600 sm:col-span-2">
+                                    Confirma tu contraseña para quitar el PIN
+                                    <input required type="password" autoComplete="current-password" value={contrasenaActual} onChange={(evento) => setContrasenaActual(evento.target.value)} className={campoClase} />
+                                </label>
                             )}
+                            {panelSeguridad === 'contrasena' && errorContrasena && <p role="alert" className="text-sm text-rose-600 sm:col-span-2">{errorContrasena}</p>}
+                            {panelSeguridad !== 'contrasena' && errorPin && <p role="alert" className="text-sm text-rose-600 sm:col-span-2">{errorPin}</p>}
                             <div className="flex justify-end gap-2 sm:col-span-2">
-                                <button type="button" onClick={() => setPanelSeguridad(null)} className="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-600 hover:bg-white">Cancelar</button>
-                                <button type="submit" className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-amber-400">Guardar</button>
+                                <button type="button" onClick={() => {
+                                    setPanelSeguridad(null)
+                                    setContrasenaActual('')
+                                    setNuevaContrasena('')
+                                    setErrorContrasena('')
+                                    setErrorPin('')
+                                }} className="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-600 hover:bg-white">Cancelar</button>
+                                <button type="submit" disabled={panelSeguridad === 'contrasena' ? guardandoContrasena : guardandoPin} className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-amber-400 disabled:cursor-wait disabled:opacity-60">
+                                    {(panelSeguridad === 'contrasena' ? guardandoContrasena : guardandoPin)
+                                        ? 'Guardando...'
+                                        : panelSeguridad === 'eliminar-pin'
+                                            ? 'Quitar PIN'
+                                            : 'Guardar'}
+                                </button>
                             </div>
                         </form>
                     )}

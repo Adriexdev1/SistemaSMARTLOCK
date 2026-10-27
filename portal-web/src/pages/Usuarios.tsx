@@ -1,5 +1,5 @@
 //Libreria para realizar cambios en la informacion mostrada al realizar busquedas
-import { useState, type FormEvent } from "react"
+import { useEffect, useState, type FormEvent } from "react"
 //Importacion de la barra de busqueda
 import BarraBusqueda from "../components/componentesPaginas/BarraBusqueda"
 //Importacion de tabla base
@@ -9,74 +9,54 @@ import { Eye, Pencil, Plus, Trash2 } from 'lucide-react'
 import Paginacion from "../components/PieTabla"
 
 //Variable con los campos de datos definidos para usuarios
- type Usuario = {
+type Usuario = {
     id: number
     iniciales: string
     nombre: string
     correo: string
+    idRol: number | null
     rol: string
     estado: 'Activo' | 'Inactivo'| 'Suspendido'
 }
 
-//Constante la cual almacena a los usuarios
-const usuariosIniciales: Usuario[] = [
-  {
-    id: 1,
-    iniciales: 'CM',
-    nombre: 'Carlos Mendoza Ruiz',
-    correo: 'c.mendoza@planta.com',
-    rol: 'Operario',
-    estado: 'Activo',
-  },
-  {
-    id: 2,
-    iniciales: 'ML',
-    nombre: 'María López Serna',
-    correo: 'm.lopez@planta.com',
-    rol: 'Supervisora',
-    estado: 'Suspendido',
-  },
-  {
-    id:3, 
-    iniciales: 'IR',
-    nombre: 'Ing. Ramírez Torres',
-    correo: 'ramirez@imss.gob.mx',
-    rol: 'Proveedor',
-    estado: 'Activo',
-  },
-    {
-        id:4,
-    iniciales: 'Ig',
-    nombre: 'Ing',
-    correo: 'ramirez@imss.gob.mx',
-    rol: 'Proveedor',
-    estado: 'Activo',
-  },
-    {
-        id:5,
-    iniciales: 'RE',
-    nombre: 'REX',
-    correo: 'ramirez@imss.gob.mx',
-    rol: 'Proveedor',
-    estado: 'Activo',
-  },
-    {
-        id:6,
-    iniciales: 'BEN',
-    nombre: 'BEN 10',
-    correo: 'ramirez@imss.gob.mx',
-    rol: 'Proveedor',
-    estado: 'Inactivo',
-  },
-      {
-        id:7,
-    iniciales: 'GWEN',
-    nombre: 'GWEN',
-    correo: 'ramirez@imss.gob.mx',
-    rol: 'Proveedor',
-    estado: 'Activo',
-  },
-]
+type Rol = { id: number; nombre: string }
+type UsuarioApi = {
+  idUsuario: number
+  nombreUsuario: string
+  correoUsuario: string
+  idRol: number | null
+  rol: string | null
+  estadoUsuario: number
+}
+
+const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+
+function adaptarUsuario(usuario: UsuarioApi): Usuario {
+  return {
+    id: usuario.idUsuario,
+    iniciales: obtenerIniciales(usuario.nombreUsuario),
+    nombre: usuario.nombreUsuario,
+    correo: usuario.correoUsuario,
+    idRol: usuario.idRol,
+    rol: usuario.rol ?? 'Sin rol asignado',
+    estado: usuario.estadoUsuario === 1
+      ? 'Activo'
+      : usuario.estadoUsuario === 2 ? 'Suspendido' : 'Inactivo',
+  }
+}
+
+function estadoAApi(estado: Usuario['estado']) {
+  return estado === 'Activo' ? 1 : estado === 'Suspendido' ? 2 : 0
+}
+
+async function errorDeRespuesta(respuesta: Response, mensajePredeterminado: string) {
+  try {
+    const cuerpo = await respuesta.json() as { mensaje?: string; title?: string }
+    return cuerpo.mensaje ?? cuerpo.title ?? mensajePredeterminado
+  } catch {
+    return mensajePredeterminado
+  }
+}
 
 //Funcion para definir colores en los roles
 function clasesRol(rol: string){
@@ -195,13 +175,17 @@ function obtenerIniciales(nombre: string) {
 
 
 export default function Usuarios(){
-    //Constantes para los usuarios
-    const[usuarios, setUsuarios] = useState(usuariosIniciales)
+    const[usuarios, setUsuarios] = useState<Usuario[]>([])
+    const[roles, setRoles] = useState<Rol[]>([])
+    const[cargando, setCargando] = useState(true)
+    const[guardando, setGuardando] = useState(false)
+    const[errorApi, setErrorApi] = useState('')
     const[modalAbierto, setModalAbierto] = useState(false)
     const[nuevoUsuario, setNuevoUsuario] = useState({
       nombre: '',
       correo: '',
-      rol: 'Operario',
+      idRol: '',
+      contrasena: '',
     })
     const [usuarioSeleccionado, setUsuarioSeleccionado] = useState<Usuario | null>(null)
     const [modoUsuario, setModoUsuario] = useState<'ver' | 'editar' | null>(null)
@@ -215,6 +199,43 @@ export default function Usuarios(){
     //Constantes para definir los usuarios por pagina 
     const [paginaActual, setPaginaActual] = useState(1)
     const tamanoPagina = 5
+
+    useEffect(() => {
+      async function cargarDatos() {
+        setCargando(true)
+        setErrorApi('')
+
+        try {
+          const [respuestaUsuarios, respuestaRoles] = await Promise.all([
+            fetch(`${apiUrl}/api/usuarios`),
+            fetch(`${apiUrl}/api/usuarios/roles`),
+          ])
+
+          if (!respuestaUsuarios.ok || !respuestaRoles.ok) {
+            throw new Error('No se pudieron cargar usuarios y roles desde la API.')
+          }
+
+          const [usuariosApi, rolesApi] = await Promise.all([
+            respuestaUsuarios.json() as Promise<UsuarioApi[]>,
+            respuestaRoles.json() as Promise<{ idRol: number; nombreRol: string }[]>,
+          ])
+
+          setUsuarios(usuariosApi.map(adaptarUsuario))
+          const rolesDisponibles = rolesApi.map((rol) => ({ id: rol.idRol, nombre: rol.nombreRol }))
+          setRoles(rolesDisponibles)
+          setNuevoUsuario((actual) => ({
+            ...actual,
+            idRol: actual.idRol || String(rolesDisponibles[0]?.id ?? ''),
+          }))
+        } catch (error) {
+          setErrorApi(error instanceof Error ? error.message : 'Error al conectar con la API.')
+        } finally {
+          setCargando(false)
+        }
+      }
+
+      void cargarDatos()
+    }, [])
     
     const usuariosFiltrados = usuarios.filter((usuario) => {
         const campos = normalizar(
@@ -243,25 +264,41 @@ export default function Usuarios(){
     )
 
     //Funcion para manejar el registro de usuarios nuevos
-    function registrarUsuario(evento: FormEvent<HTMLFormElement>) {
+    async function registrarUsuario(evento: FormEvent<HTMLFormElement>) {
       evento.preventDefault()
-      
-      const usuarioCreado: Usuario = {
-        id: Math.max(0, ...usuarios.map((usuario) => usuario.id)) + 1,
-        iniciales: obtenerIniciales(nuevoUsuario.nombre),
-        nombre: nuevoUsuario.nombre.trim(),
-        correo: nuevoUsuario.correo.trim(),        
-        rol: nuevoUsuario.rol,
-        estado: 'Activo',
-  }
-  
-  setUsuarios((actuales) => [...actuales, usuarioCreado])
-  setBusqueda('')
-  setEstado('Todos')
-  setPaginaActual(1)
-  setModalAbierto(false)
-  setNuevoUsuario({ nombre: '', correo: '', rol: 'Operario' })
-}
+      setGuardando(true)
+      setErrorApi('')
+
+      try {
+        const respuesta = await fetch(`${apiUrl}/api/usuarios`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            nombreUsuario: nuevoUsuario.nombre.trim(),
+            correoUsuario: nuevoUsuario.correo.trim(),
+            contrasena: nuevoUsuario.contrasena,
+            idRol: nuevoUsuario.idRol ? Number(nuevoUsuario.idRol) : null,
+          }),
+        })
+
+        if (!respuesta.ok) {
+          setErrorApi(await errorDeRespuesta(respuesta, 'No se pudo crear el usuario.'))
+          return
+        }
+
+        const usuarioCreado = adaptarUsuario(await respuesta.json() as UsuarioApi)
+        setUsuarios((actuales) => [...actuales, usuarioCreado])
+        setBusqueda('')
+        setEstado('Todos')
+        setPaginaActual(1)
+        setModalAbierto(false)
+        setNuevoUsuario({ nombre: '', correo: '', idRol: String(roles[0]?.id ?? ''), contrasena: '' })
+      } catch {
+        setErrorApi('No se pudo conectar con la API.')
+      } finally {
+        setGuardando(false)
+      }
+    }
 
     //Funcion para abrir la informacion del usuario seleccionado
     function abrirUsuario(usuario: Usuario) {
@@ -277,31 +314,71 @@ export default function Usuarios(){
     }
 
     //Funcion para guardar cambios en la lista de usuarios
-    function guardarEdicionUsuario(evento: FormEvent<HTMLFormElement>) {
+    async function guardarEdicionUsuario(evento: FormEvent<HTMLFormElement>) {
       evento.preventDefault()
       if (!usuarioSeleccionado || !borradorUsuario) return
 
-      const usuarioActualizado = {
-        ...borradorUsuario,
-        nombre: borradorUsuario.nombre.trim(),
-        correo: borradorUsuario.correo.trim(),
-        iniciales: obtenerIniciales(borradorUsuario.nombre),
-      }
+      setGuardando(true)
+      setErrorApi('')
 
-      setUsuarios((actuales) => actuales.map((usuario) =>
-        usuario.id === usuarioSeleccionado.id ? usuarioActualizado : usuario
-      ))
-      setUsuarioSeleccionado(usuarioActualizado)
-      setBorradorUsuario(null)
-      setModoUsuario('ver')
+      try {
+        const respuesta = await fetch(`${apiUrl}/api/usuarios/${usuarioSeleccionado.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            nombreUsuario: borradorUsuario.nombre.trim(),
+            correoUsuario: borradorUsuario.correo.trim(),
+            idRol: borradorUsuario.idRol,
+            estadoUsuario: estadoAApi(borradorUsuario.estado),
+          }),
+        })
+
+        if (!respuesta.ok) {
+          setErrorApi(await errorDeRespuesta(respuesta, 'No se pudieron guardar los cambios.'))
+          return
+        }
+
+        const usuarioActualizado = {
+          ...borradorUsuario,
+          nombre: borradorUsuario.nombre.trim(),
+          correo: borradorUsuario.correo.trim(),
+          iniciales: obtenerIniciales(borradorUsuario.nombre),
+          rol: roles.find((rol) => rol.id === borradorUsuario.idRol)?.nombre ?? 'Sin rol asignado',
+        }
+        setUsuarios((actuales) => actuales.map((usuario) =>
+          usuario.id === usuarioSeleccionado.id ? usuarioActualizado : usuario
+        ))
+        setUsuarioSeleccionado(usuarioActualizado)
+        setBorradorUsuario(null)
+        setModoUsuario('ver')
+      } catch {
+        setErrorApi('No se pudo conectar con la API.')
+      } finally {
+        setGuardando(false)
+      }
     }
 
     //Funcion para eliminar el usuario despues de confirmar
-    function eliminarUsuario() {
+    async function eliminarUsuario() {
       if (!usuarioAEliminar) return
-      setUsuarios((actuales) => actuales.filter((usuario) => usuario.id !== usuarioAEliminar.id))
-      setUsuarioAEliminar(null)
-      setPaginaActual(1)
+      setGuardando(true)
+      setErrorApi('')
+
+      try {
+        const respuesta = await fetch(`${apiUrl}/api/usuarios/${usuarioAEliminar.id}`, { method: 'DELETE' })
+        if (!respuesta.ok) {
+          setErrorApi(await errorDeRespuesta(respuesta, 'No se pudo eliminar el usuario.'))
+          return
+        }
+
+        setUsuarios((actuales) => actuales.filter((usuario) => usuario.id !== usuarioAEliminar.id))
+        setUsuarioAEliminar(null)
+        setPaginaActual(1)
+      } catch {
+        setErrorApi('No se pudo conectar con la API.')
+      } finally {
+        setGuardando(false)
+      }
     }
 
     //Las columnas reciben estas funciones para actuar sobre la fila seleccionada
@@ -326,13 +403,21 @@ export default function Usuarios(){
 
       <button
         type="button"
-        onClick={() => setModalAbierto(true)}
-        className="inline-flex items-center gap-2 rounded-md bg-amber-500 px-4 py-2 font-medium text-slate-950 hover:bg-amber-400"
+        onClick={() => {
+          setErrorApi('')
+          setModalAbierto(true)
+        }}
+        disabled={cargando}
+        className="inline-flex items-center gap-2 rounded-md bg-amber-500 px-4 py-2 font-medium text-slate-950 hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
       >
         <Plus size={18} aria-hidden="true" />
         Nuevo usuario
       </button>
     </section>
+
+        {errorApi && <p role="alert" className="mb-4 rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{errorApi}</p>}
+        {cargando && <p role="status" className="py-8 text-center text-sm text-slate-500">Cargando usuarios...</p>}
+        {!cargando && !errorApi && roles.length === 0 && <p role="status" className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">No hay roles registrados; los nuevos usuarios se crearán sin rol asignado.</p>}
 
         {/*Barra de busqueda*/}
         <BarraBusqueda valor={busqueda}
@@ -395,21 +480,32 @@ export default function Usuarios(){
         </label>
 
         <label className="block text-sm text-slate-600">
+          Contraseña inicial
+          <input
+            required
+            type="password"
+            minLength={8}
+            maxLength={100}
+            autoComplete="new-password"
+            value={nuevoUsuario.contrasena}
+            onChange={(evento) => setNuevoUsuario({ ...nuevoUsuario, contrasena: evento.target.value })}
+            className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3"
+          />
+        </label>
+
+        <label className="block text-sm text-slate-600">
           Rol
           <select
-            value={nuevoUsuario.rol}
-            onChange={(evento) =>
-              setNuevoUsuario({ ...nuevoUsuario, rol: evento.target.value })
-            }
+            value={nuevoUsuario.idRol}
+            onChange={(evento) => setNuevoUsuario({ ...nuevoUsuario, idRol: evento.target.value })}
             className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3"
           >
-            <option>Operario</option>
-            <option>Supervisora</option>
-            <option>Proveedor</option>
-            <option>Seguridad</option>
-            <option>Administrador</option>
+            <option value="">Sin rol asignado</option>
+            {roles.map((rol) => <option key={rol.id} value={rol.id}>{rol.nombre}</option>)}
           </select>
         </label>
+
+        {errorApi && <p role="alert" className="text-sm text-rose-600">{errorApi}</p>}
 
         <div className="flex justify-end gap-2 pt-2">
           <button
@@ -421,9 +517,10 @@ export default function Usuarios(){
           </button>
           <button
             type="submit"
-            className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950"
+            disabled={guardando}
+            className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950 disabled:cursor-wait disabled:opacity-60"
           >
-            Crear usuario
+            {guardando ? 'Creando...' : 'Crear usuario'}
           </button>
         </div>
       </form>
@@ -433,7 +530,7 @@ export default function Usuarios(){
 
         <div className="mt-4">
             <DataTable columns={columnasUsuarios}
-            rows={usuariosPagina}
+          rows={cargando ? [] : usuariosPagina}
             getRowKey={(usuario) => String(usuario.id)} 
             footer={
                 <Paginacion
@@ -530,15 +627,17 @@ export default function Usuarios(){
                   <label className="block text-sm text-slate-600">
                     Rol
                     <select
-                      value={borradorUsuario.rol}
-                      onChange={(evento) => setBorradorUsuario({ ...borradorUsuario, rol: evento.target.value })}
+                      required
+                      value={borradorUsuario.idRol ?? ''}
+                      onChange={(evento) => setBorradorUsuario({
+                        ...borradorUsuario,
+                        idRol: evento.target.value ? Number(evento.target.value) : null,
+                        rol: roles.find((rol) => String(rol.id) === evento.target.value)?.nombre ?? 'Sin rol asignado',
+                      })}
                       className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3"
                     >
-                      <option>Operario</option>
-                      <option>Supervisora</option>
-                      <option>Proveedor</option>
-                      <option>Seguridad</option>
-                      <option>Administrador</option>
+                      <option value="">Selecciona un rol</option>
+                      {roles.map((rol) => <option key={rol.id} value={rol.id}>{rol.nombre}</option>)}
                     </select>
                   </label>
                   <label className="block text-sm text-slate-600">
@@ -564,8 +663,8 @@ export default function Usuarios(){
                     >
                       Cancelar
                     </button>
-                    <button type="submit" className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-amber-400">
-                      Guardar cambios
+                    <button type="submit" disabled={guardando} className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-amber-400 disabled:cursor-wait disabled:opacity-60">
+                      {guardando ? 'Guardando...' : 'Guardar cambios'}
                     </button>
                   </div>
                 </form>

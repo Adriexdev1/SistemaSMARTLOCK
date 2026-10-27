@@ -50,11 +50,12 @@ namespace SmartlockApi.Datos
         }
 
 
-        public async Task<bool> ConsumirQrAsync(string codigoQr)
+        public async Task<bool> ConsumirQrAsync(string codigoQr, string metodoAcceso)
         {
             await using var conn = new SqlConnection(_cadenaConexion);
             await using var cmd = new SqlCommand("SP_CONSUMIR_QR", conn) { CommandType = CommandType.StoredProcedure };
             cmd.Parameters.AddWithValue("@codigo_qr", codigoQr);
+            cmd.Parameters.Add("@metodo_acceso", SqlDbType.VarChar, 20).Value = metodoAcceso;
 
             await conn.OpenAsync();
             await using var reader = await cmd.ExecuteReaderAsync();

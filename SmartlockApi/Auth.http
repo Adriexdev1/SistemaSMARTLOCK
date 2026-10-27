@@ -1,0 +1,48 @@
+@baseUrl = http://localhost:5000
+
+### Inicio de sesión con un usuario existente y activo
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "correo": "prueba@smartlock.com",
+  "contrasena": "Clave123"
+}
+
+### Credenciales incorrectas
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "correo": "prueba@smartlock.com",
+  "contrasena": "incorrecta"
+}
+
+### Configurar o cambiar el PIN (requiere contraseña actual)
+POST {{baseUrl}}/api/auth/pin
+Content-Type: application/json
+
+{
+  "idUsuario": 1,
+  "contrasenaActual": "Clave123",
+  "pin": "4826"
+}
+
+### Quitar el PIN (requiere contraseña actual)
+DELETE {{baseUrl}}/api/auth/pin
+Content-Type: application/json
+
+{
+  "idUsuario": 1,
+  "contrasenaActual": "Clave123"
+}
+
+### Cambiar contraseña (requiere la contraseña actual)
+PUT {{baseUrl}}/api/auth/password
+Content-Type: application/json
+
+{
+  "idUsuario": 1,
+  "contrasenaActual": "Clave123",
+  "nuevaContrasena": "NuevaClave123"
+}

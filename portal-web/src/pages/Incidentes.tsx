@@ -1,8 +1,9 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { Hammer, CircleCheck, Clock3, Eye, Plus, RefreshCw, Siren, X } from 'lucide-react'
 import CartaEstadistica from '../components/componentesPaginas/CartaEstadistica'
 import DataTable from '../components/TablaBase'
 import Paginacion from '../components/PieTabla'
+import { obtenerUsuarioSesion } from '../utils/usuarioSesion'
 
 type EstadoIncidente = 'Pendiente' | 'En progreso' | 'Resuelto'
 type PrioridadIncidente = 'Crítica' | 'Alta' | 'Media' | 'Baja'
@@ -18,62 +19,17 @@ type Incidente = {
     estado: EstadoIncidente
 }
 
-const incidentesIniciales: Incidente[] = [
-    {
-        id: 1,
-        fecha: '2026-08-28',
-        hora: '09:40',
-        tipo: 'QR inválido',
-        descripcion: 'Código QR rechazado 3 veces consecutivas',
-        prioridad: 'Alta',
-        estado: 'Pendiente',
-    },
-    {
-        id: 2,
-        fecha: '2026-08-28',
-        hora: '06:15',
-        tipo: 'Sin red',
-        descripcion: 'Pérdida de conexión WiFi por 8 min',
-        prioridad: 'Media',
-        estado: 'Resuelto',
-    },
-    {
-        id: 3,
-        fecha: '2026-08-27',
-        hora: '18:30',
-        tipo: 'Energía',
-        descripcion: 'Corte de energía eléctrica en Zona B',
-        prioridad: 'Alta',
-        estado: 'Resuelto',
-    },
-    {
-        id: 4,
-        fecha: '2026-08-27',
-        hora: '14:00',
-        tipo: 'Fuerza física',
-        descripcion: 'Intento de apertura forzada detectado',
-        prioridad: 'Crítica',
-        estado: 'En progreso',
-    },
-    {
-        id: 5,
-        fecha: '2026-08-26',
-        hora: '11:20',
-        tipo: 'Software',
-        descripcion: 'Error en generación de QR: tiempo de espera agotado',
-        prioridad: 'Baja',
-        estado: 'Resuelto',
-    },
-    {
-        id: 6,
-        fecha: '2026-08-26',
-        hora: '08:05',
-        tipo: 'QR inválido',
-        descripcion: 'Código expirado presentado en el acceso',
-        prioridad: 'Alta',
-        estado: 'Pendiente',
-    },
-]
+type IncidenteApi = {
+    idIncidente: number
+    tipo: string
+    descripcion: string
+    prioridad: PrioridadIncidente
+    estado: EstadoIncidente
+    fecha: string
+    hora: string
+}
+
+const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000'
 
 const clasesPrioridad: Record<PrioridadIncidente, string> = {
     Crítica: 'bg-red-600 text-white',
@@ -96,7 +52,10 @@ function fechaVisible(fecha: string) {
 }
 
 export default function Incidentes() {
-    const [incidentes, setIncidentes] = useState(incidentesIniciales)
+    const [incidentes, setIncidentes] = useState<Incidente[]>([])
+    const [cargando, setCargando] = useState(true)
+    const [guardando, setGuardando] = useState(false)
+    const [errorApi, setErrorApi] = useState('')
     const [filtro, setFiltro] = useState<FiltroIncidentes>('Todos')
     const [paginaActual, setPaginaActual] = useState(1)
     const [modalRegistroAbierto, setModalRegistroAbierto] = useState(false)
@@ -107,6 +66,33 @@ export default function Incidentes() {
         prioridad: 'Media' as PrioridadIncidente,
     })
 
+    useEffect(() => {
+        async function cargarIncidentes() {
+            setCargando(true)
+            setErrorApi('')
+            try {
+                const respuesta = await fetch(`${apiUrl}/api/incidentes`)
+                if (!respuesta.ok) throw new Error('No se pudieron cargar los incidentes.')
+                const datos = await respuesta.json() as IncidenteApi[]
+                setIncidentes(datos.map((incidente) => ({
+                    id: incidente.idIncidente,
+                    fecha: incidente.fecha,
+                    hora: incidente.hora,
+                    tipo: incidente.tipo,
+                    descripcion: incidente.descripcion,
+                    prioridad: incidente.prioridad,
+                    estado: incidente.estado,
+                })))
+            } catch (error) {
+                setErrorApi(error instanceof Error ? error.message : 'No se pudo conectar con la API.')
+            } finally {
+                setCargando(false)
+            }
+        }
+
+        void cargarIncidentes()
+    }, [])
+
     const tamanoPagina = 5
     const incidentesFiltrados = filtro === 'Todos'
         ? incidentes
@@ -115,39 +101,83 @@ export default function Incidentes() {
     const pagina = Math.min(paginaActual, totalPaginas)
     const inicio = (pagina - 1) * tamanoPagina
     const incidentesPagina = incidentesFiltrados.slice(inicio, inicio + tamanoPagina)
-
     const pendientes = incidentes.filter((incidente) => incidente.estado === 'Pendiente').length
     const enProgreso = incidentes.filter((incidente) => incidente.estado === 'En progreso').length
     const resueltos = incidentes.filter((incidente) => incidente.estado === 'Resuelto').length
 
-    function avanzarEstado(incidenteId: number) {
-        setIncidentes((actuales) => actuales.map((incidente) => {
-            if (incidente.id !== incidenteId) return incidente
-            const siguienteEstado: EstadoIncidente = incidente.estado === 'Pendiente'
-                ? 'En progreso'
-                : 'Resuelto'
-            return { ...incidente, estado: siguienteEstado }
-        }))
+    async function avanzarEstado(incidenteId: number) {
+        const incidente = incidentes.find((actual) => actual.id === incidenteId)
+        if (!incidente) return
+
+        const siguienteEstado: EstadoIncidente = incidente.estado === 'Pendiente'
+            ? 'En progreso'
+            : 'Resuelto'
+
+        setGuardando(true)
+        setErrorApi('')
+        try {
+            const respuesta = await fetch(`${apiUrl}/api/incidentes/${incidenteId}/estado`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ estado: siguienteEstado }),
+            })
+            if (!respuesta.ok) throw new Error('No se pudo actualizar el estado del incidente.')
+
+            setIncidentes((actuales) => actuales.map((actual) =>
+                actual.id === incidenteId ? { ...actual, estado: siguienteEstado } : actual
+            ))
+            setIncidenteSeleccionado((actual) => actual?.id === incidenteId
+                ? { ...actual, estado: siguienteEstado }
+                : actual)
+        } catch (error) {
+            setErrorApi(error instanceof Error ? error.message : 'No se pudo conectar con la API.')
+        } finally {
+            setGuardando(false)
+        }
     }
 
-    function registrarIncidente(evento: FormEvent<HTMLFormElement>) {
+    async function registrarIncidente(evento: FormEvent<HTMLFormElement>) {
         evento.preventDefault()
-        const ahora = new Date()
-        const fecha = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, '0')}-${String(ahora.getDate()).padStart(2, '0')}`
-        const hora = `${String(ahora.getHours()).padStart(2, '0')}:${String(ahora.getMinutes()).padStart(2, '0')}`
-        const nuevo: Incidente = {
-            ...nuevoIncidente,
-            id: Math.max(0, ...incidentes.map((incidente) => incidente.id)) + 1,
-            fecha,
-            hora,
-            estado: 'Pendiente',
+        const usuario = obtenerUsuarioSesion()
+        if (!usuario) {
+            setErrorApi('Tu sesión terminó. Inicia sesión nuevamente.')
+            return
         }
 
-        setIncidentes((actuales) => [nuevo, ...actuales])
-        setFiltro('Todos')
-        setPaginaActual(1)
-        setNuevoIncidente({ tipo: 'QR inválido', descripcion: '', prioridad: 'Media' })
-        setModalRegistroAbierto(false)
+        setGuardando(true)
+        setErrorApi('')
+        try {
+            const respuesta = await fetch(`${apiUrl}/api/incidentes`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    tipo: nuevoIncidente.tipo,
+                    descripcion: nuevoIncidente.descripcion.trim(),
+                    prioridad: nuevoIncidente.prioridad,
+                    idUsuarioRegistro: usuario.idUsuario,
+                }),
+            })
+
+            if (!respuesta.ok) throw new Error('No se pudo registrar el incidente.')
+            const creado = await respuesta.json() as IncidenteApi
+            setIncidentes((actuales) => [{
+                id: creado.idIncidente,
+                fecha: creado.fecha,
+                hora: creado.hora,
+                tipo: creado.tipo,
+                descripcion: creado.descripcion,
+                prioridad: creado.prioridad,
+                estado: creado.estado,
+            }, ...actuales])
+            setFiltro('Todos')
+            setPaginaActual(1)
+            setNuevoIncidente({ tipo: 'QR inválido', descripcion: '', prioridad: 'Media' })
+            setModalRegistroAbierto(false)
+        } catch (error) {
+            setErrorApi(error instanceof Error ? error.message : 'No se pudo conectar con la API.')
+        } finally {
+            setGuardando(false)
+        }
     }
 
     const columnasIncidentes = [
@@ -210,8 +240,9 @@ export default function Incidentes() {
                         <button
                             type="button"
                             aria-label={`Actualizar estado del incidente ${incidente.id}`}
-                            onClick={() => avanzarEstado(incidente.id)}
-                            className="flex h-8 w-8 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-blue-100 hover:text-blue-700 focus-visible:outline-2 focus-visible:outline-blue-400"
+                            disabled={guardando}
+                            onClick={() => void avanzarEstado(incidente.id)}
+                            className="flex h-8 w-8 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-blue-100 hover:text-blue-700 focus-visible:outline-2 focus-visible:outline-blue-400 disabled:cursor-wait disabled:opacity-50"
                         >
                             <RefreshCw size={15} />
                         </button>
@@ -230,13 +261,20 @@ export default function Incidentes() {
                 </div>
                 <button
                     type="button"
-                    onClick={() => setModalRegistroAbierto(true)}
-                    className="inline-flex items-center gap-2 rounded-lg bg-rose-500 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-rose-600"
+                    onClick={() => {
+                        setErrorApi('')
+                        setModalRegistroAbierto(true)
+                    }}
+                    disabled={cargando}
+                    className="inline-flex items-center gap-2 rounded-lg bg-rose-500 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-rose-600 disabled:cursor-wait disabled:opacity-60"
                 >
                     <Plus size={18} aria-hidden="true" />
                     Registrar incidente
                 </button>
             </section>
+
+            {errorApi && <p role="alert" className="mb-4 rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{errorApi}</p>}
+            {cargando && <p role="status" className="py-8 text-center text-sm text-slate-500">Cargando incidentes...</p>}
 
             {/*Las tarjetas cambian de una columna en móvil a cuatro en escritorio*/}
             <section className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -265,7 +303,7 @@ export default function Incidentes() {
 
             <DataTable
                 columns={columnasIncidentes}
-                rows={incidentesPagina}
+                rows={cargando ? [] : incidentesPagina}
                 getRowKey={(incidente) => String(incidente.id)}
                 footer={
                     <Paginacion
@@ -330,9 +368,10 @@ export default function Incidentes() {
                                         <option>Crítica</option><option>Alta</option><option>Media</option><option>Baja</option>
                                     </select>
                                 </label>
+                                {errorApi && <p role="alert" className="text-sm text-rose-600">{errorApi}</p>}
                                 <div className="flex justify-end gap-2 pt-2">
                                     <button type="button" onClick={() => setModalRegistroAbierto(false)} className="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50">Cancelar</button>
-                                    <button type="submit" className="rounded-lg bg-rose-500 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-600">Registrar</button>
+                                    <button type="submit" disabled={guardando} className="rounded-lg bg-rose-500 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-600 disabled:cursor-wait disabled:opacity-60">{guardando ? 'Registrando...' : 'Registrar'}</button>
                                 </div>
                             </form>
                         )}

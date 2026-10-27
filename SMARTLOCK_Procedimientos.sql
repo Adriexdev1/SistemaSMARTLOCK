@@ -385,3 +385,70 @@ BEGIN
     END CATCH
 END
 GO
+
+CREATE PROCEDURE SP_REGISTRAR_INCIDENTE
+    @TipoIncidente VARCHAR(80),
+    @DescripcionIncidente VARCHAR(500),
+    @PrioridadIncidente VARCHAR(20),
+    @IdUsuarioRegistro INT,
+    @IdEvento INT = NULL
+AS
+BEGIN
+    INSERT INTO incidentes (
+        tipo_incidente,
+        descripcion_incidente,
+        prioridad_incidente,
+        estado_incidente,
+        fecha_incidente,
+        hora_incidente,
+        id_usuario_registro,
+        id_evento
+    )
+    VALUES (
+        @TipoIncidente,
+        @DescripcionIncidente,
+        @PrioridadIncidente,
+        'Pendiente',
+        CAST(GETDATE() AS DATE),
+        CONVERT(TIME, GETDATE()),
+        @IdUsuarioRegistro,
+        @IdEvento
+    );
+END
+GO
+
+CREATE PROCEDURE SP_ACTUALIZAR_ESTADO_INCIDENTE
+    @IdIncidente INT,
+    @EstadoIncidente VARCHAR(20),
+    @IdUsuarioAsignado INT = NULL,
+    @ObservacionCierre VARCHAR(500) = NULL
+AS
+BEGIN
+    UPDATE incidentes
+    SET estado_incidente = @EstadoIncidente,
+        id_usuario_asignado = @IdUsuarioAsignado,
+        observacion_cierre = @ObservacionCierre,
+        fecha_actualizacion = GETDATE()
+    WHERE id_incidente = @IdIncidente;
+END
+GO
+
+CREATE PROCEDURE SP_LISTAR_INCIDENTES
+AS
+BEGIN
+    SELECT
+        i.id_incidente,
+        i.tipo_incidente,
+        i.descripcion_incidente,
+        i.prioridad_incidente,
+        i.estado_incidente,
+        i.fecha_incidente,
+        i.hora_incidente,
+        u.nombre_usuario AS usuario_registro,
+        e.nombre_evento
+    FROM incidentes i
+    LEFT JOIN usuarios u ON u.id_usuario = i.id_usuario_registro
+    LEFT JOIN eventos e ON e.id_evento = i.id_evento
+    ORDER BY i.fecha_incidente DESC, i.hora_incidente DESC;
+END
+GO

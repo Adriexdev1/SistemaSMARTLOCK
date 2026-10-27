@@ -79,7 +79,8 @@ namespace SmartlockApi.Controladores
                 }
             }
 
-            bool consumido = await _repo.ConsumirQrAsync(request.CodigoQr);
+            string metodoAcceso = string.IsNullOrEmpty(pinHash) ? "Solo QR" : "QR + PIN";
+            bool consumido = await _repo.ConsumirQrAsync(request.CodigoQr, metodoAcceso);
 
             if (!consumido)
             {

@@ -4,6 +4,7 @@
     import {House, Users, Calendar, RotateCcwClock, AlertTriangle, User, LockKeyhole,LogOut} from 'lucide-react'
     //Libreria para navegacion en la pagina web
     import { useNavigate } from 'react-router-dom'
+    import { cerrarSesion } from '../utils/usuarioSesion'
 
     //Funcion para la barra lateral de la pagina web
     type SidebarProps = {
@@ -30,6 +31,7 @@
         
         //Funcion encargada de cerrar sesion y redirigir al inicio de sesion
         function handleLogout() {
+            cerrarSesion()
             //Envia al inicio de sesion 
             navigate('/login')
         }

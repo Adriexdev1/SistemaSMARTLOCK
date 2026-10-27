@@ -14,29 +14,43 @@ function fechaVisible(fecha: string) {
 export default function DetalleCita() {
 	const { id } = useParams()
 	const [searchParams, setSearchParams] = useSearchParams()
-	const { citas, actualizarCita } = useCitas()
+	const { citas, usuarios, actualizarCita, generarQr } = useCitas()
 	const cita = citas.find((acceso) => acceso.id === Number(id))
 	const editando = searchParams.get('editar') === '1'
 	const [borrador, setBorrador] = useState<Cita | null>(cita ?? null)
+	const [guardando, setGuardando] = useState(false)
+	const [error, setError] = useState('')
 
 	useEffect(() => {
 		if (cita) setBorrador({ ...cita })
 	}, [cita, editando])
 
-	function guardarCambios(evento: FormEvent<HTMLFormElement>) {
+	async function guardarCambios(evento: FormEvent<HTMLFormElement>) {
 		evento.preventDefault()
 		if (!borrador) return
-		actualizarCita(borrador)
-		setSearchParams({}, { replace: true })
+		setGuardando(true)
+		setError('')
+		try {
+			await actualizarCita(borrador)
+			setSearchParams({}, { replace: true })
+		} catch (errorGuardado) {
+			setError(errorGuardado instanceof Error ? errorGuardado.message : 'No se pudo actualizar el acceso.')
+		} finally {
+			setGuardando(false)
+		}
 	}
 
-	function regenerarQr() {
+	async function regenerarQr() {
 		if (!cita) return
-		actualizarCita({
-			...cita,
-			qr: 'Generado',
-			qrToken: `SMARTLOCK-ACCESS-${cita.id}-${crypto.randomUUID()}`,
-		})
+		setGuardando(true)
+		setError('')
+		try {
+			await generarQr(cita.id)
+		} catch (errorQr) {
+			setError(errorQr instanceof Error ? errorQr.message : 'No se pudo generar el QR.')
+		} finally {
+			setGuardando(false)
+		}
 	}
 
 	if (!cita || !borrador) {
@@ -92,8 +106,9 @@ export default function DetalleCita() {
 					{!editando && (
 						<button
 							type="button"
-							onClick={regenerarQr}
-							className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-3 py-2 text-sm font-semibold text-slate-950 hover:bg-amber-400"
+							disabled={guardando}
+							onClick={() => void regenerarQr()}
+							className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-3 py-2 text-sm font-semibold text-slate-950 hover:bg-amber-400 disabled:cursor-wait disabled:opacity-60"
 						>
 							<QrCode size={16} /> Generar nuevo QR
 						</button>
@@ -109,7 +124,12 @@ export default function DetalleCita() {
 					</div>
 					<div className="grid gap-4 sm:grid-cols-2">
 						<label className="text-sm text-slate-600">Visitante / Empleado
-							<input required value={borrador.visitante} onChange={(evento) => setBorrador({ ...borrador, visitante: evento.target.value })} className={inputClass} />
+							<select required value={borrador.idUsuario} onChange={(evento) => {
+								const usuario = usuarios.find((actual) => actual.id === Number(evento.target.value))
+								if (usuario) setBorrador({ ...borrador, idUsuario: usuario.id, visitante: usuario.nombre })
+							}} className={inputClass}>
+								{usuarios.map((usuario) => <option key={usuario.id} value={usuario.id}>{usuario.nombre}</option>)}
+							</select>
 						</label>
 						<label className="text-sm text-slate-600">Tipo de acceso
 							<input required value={borrador.tipo} onChange={(evento) => setBorrador({ ...borrador, tipo: evento.target.value })} className={inputClass} />
@@ -133,8 +153,9 @@ export default function DetalleCita() {
 					</div>
 					<div className="mt-6 flex flex-wrap justify-end gap-2">
 						<button type="button" onClick={() => setSearchParams({}, { replace: true })} className="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50">Cancelar</button>
-						<button type="submit" className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-amber-400">Guardar cambios</button>
+						<button type="submit" disabled={guardando} className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-amber-400 disabled:cursor-wait disabled:opacity-60">{guardando ? 'Guardando...' : 'Guardar cambios'}</button>
 					</div>
+					{error && <p role="alert" className="mt-4 text-sm text-rose-600">{error}</p>}
 				</form>
 			) : (
 				<>
@@ -165,13 +186,14 @@ export default function DetalleCita() {
 								<div className="flex min-h-64 flex-col items-center justify-center gap-3 rounded-lg bg-slate-50 p-5 text-center">
 									<QrCode size={36} className="text-slate-400" />
 									<p className="text-sm text-slate-600">Este acceso todavía no tiene un QR generado.</p>
-									<button type="button" onClick={regenerarQr} className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-amber-400">Generar QR</button>
+									<button type="button" disabled={guardando} onClick={() => void regenerarQr()} className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-amber-400 disabled:cursor-wait disabled:opacity-60">{guardando ? 'Generando...' : 'Generar QR'}</button>
 								</div>
 							)}
 							<div className="mt-5 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
 								<strong className="block">Importante</strong>
 								Este QR es de un solo uso. Después de utilizarse quedará inválido automáticamente.
 							</div>
+							{error && <p role="alert" className="mt-3 text-sm text-rose-600">{error}</p>}
 						</article>
 					</section>
 

@@ -1,4 +1,4 @@
-import { createContext, useContext, useState } from 'react'
+import { createContext, useContext, useEffect, useState } from 'react'
 import { Outlet } from 'react-router-dom'
 
 export type EstadoCita = 'Activo' | 'Completado'
@@ -13,6 +13,7 @@ export type AccesoCita = {
 
 export type Cita = {
   id: number
+  idUsuario: number
   fecha: string
   hora: string
   horaFin: string
@@ -24,67 +25,151 @@ export type Cita = {
   historial: AccesoCita[]
 }
 
-type CitasContextValue = {
-  citas: Cita[]
-  agregarCita: (cita: Omit<Cita, 'id'>) => void
-  actualizarCita: (citaActualizada: Cita) => void
-  eliminarCita: (id: number) => void
+export type UsuarioAcceso = { id: number; nombre: string }
+
+type EventoApi = {
+  id: number
+  idDetalleEvento: number
+  idUsuario: number
+  visitante: string
+  tipo: string
+  fecha: string
+  hora: string
+  horaFin: string
+  estado: EstadoCita
+  estadoQr: EstadoQr
+  codigoQr: string | null
+  historial: AccesoCita[]
 }
 
-const citasIniciales: Cita[] = [
-  {
-    id: 1,
-    fecha: '2026-08-28',
-    hora: '08:00',
-    horaFin: '16:00',
-    visitante: 'Carlos Mendoza Ruiz',
-    tipo: 'Turno matutino',
-    estado: 'Activo',
-    qr: 'Generado',
-    qrToken: 'SMARTLOCK-DEMO-ACCESS-1',
-    historial: [],
-  },
-  {
-    id: 2,
-    fecha: '2026-08-28',
-    hora: '09:30',
-    horaFin: '12:00',
-    visitante: 'Grupo Logística NL',
-    tipo: 'Visita proveedor',
-    estado: 'Activo',
-    qr: 'Pendiente',
-    qrToken: 'SMARTLOCK-DEMO-ACCESS-2',
-    historial: [],
-  },
-]
+type UsuarioApi = { idUsuario: number; nombreUsuario: string; estadoUsuario: number }
+
+type CitasContextValue = {
+  citas: Cita[]
+  usuarios: UsuarioAcceso[]
+  cargando: boolean
+  error: string
+  agregarCita: (cita: Omit<Cita, 'id' | 'qr' | 'qrToken' | 'historial'>) => Promise<void>
+  actualizarCita: (citaActualizada: Cita) => Promise<void>
+  eliminarCita: (id: number) => Promise<void>
+    generarQr: (id: number) => Promise<string>
+}
+
+const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+
+function adaptarEvento(evento: EventoApi): Cita {
+  return {
+    id: evento.idDetalleEvento,
+    idUsuario: evento.idUsuario,
+    fecha: evento.fecha,
+    hora: evento.hora,
+    horaFin: evento.horaFin,
+    visitante: evento.visitante,
+    tipo: evento.tipo,
+    estado: evento.estado,
+    qr: evento.estadoQr,
+    qrToken: evento.codigoQr ?? '',
+    historial: evento.historial ?? [],
+  }
+}
 
 const CitasContext = createContext<CitasContextValue | null>(null)
 
 export function CitasProvider() {
-  const [citas, setCitas] = useState(citasIniciales)
+  const [citas, setCitas] = useState<Cita[]>([])
+  const [usuarios, setUsuarios] = useState<UsuarioAcceso[]>([])
+  const [cargando, setCargando] = useState(true)
+  const [error, setError] = useState('')
 
-  function agregarCita(nuevaCita: Omit<Cita, 'id'>){
-    setCitas((actuales) => [
-        ...actuales,
-        {
-            ...nuevaCita,
-            id: Math.max(0, ...actuales.map((cita) => cita.id)) + 1,
-        },
-    ])
+  useEffect(() => {
+    async function cargarDatos() {
+      setCargando(true)
+      setError('')
+      try {
+        const [respuestaEventos, respuestaUsuarios] = await Promise.all([
+          fetch(`${apiUrl}/api/eventos`),
+          fetch(`${apiUrl}/api/usuarios`),
+        ])
+        if (!respuestaEventos.ok || !respuestaUsuarios.ok) {
+          throw new Error('No se pudieron cargar los accesos y usuarios.')
+        }
+
+        const [eventos, usuariosApi] = await Promise.all([
+          respuestaEventos.json() as Promise<EventoApi[]>,
+          respuestaUsuarios.json() as Promise<UsuarioApi[]>,
+        ])
+        setCitas(eventos.map(adaptarEvento))
+        setUsuarios(usuariosApi
+          .filter((usuario) => usuario.estadoUsuario === 1)
+          .map((usuario) => ({ id: usuario.idUsuario, nombre: usuario.nombreUsuario })))
+      } catch (errorCarga) {
+        setError(errorCarga instanceof Error ? errorCarga.message : 'No se pudo conectar con la API.')
+      } finally {
+        setCargando(false)
+      }
+    }
+
+    void cargarDatos()
+  }, [])
+
+  async function agregarCita(nuevaCita: Omit<Cita, 'id' | 'qr' | 'qrToken' | 'historial'>) {
+    const respuesta = await fetch(`${apiUrl}/api/eventos`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        idUsuario: nuevaCita.idUsuario,
+        tipo: nuevaCita.tipo,
+        fecha: nuevaCita.fecha,
+        horaInicio: nuevaCita.hora,
+        horaFin: nuevaCita.horaFin,
+      }),
+    })
+    if (!respuesta.ok) throw new Error('No se pudo guardar el acceso.')
+    const evento = await respuesta.json() as EventoApi
+    setCitas((actuales) => [adaptarEvento(evento), ...actuales])
   }
 
-  function actualizarCita(citaActualizada: Cita) {
-    setCitas((actuales) => actuales.map((cita) =>
-      cita.id === citaActualizada.id ? citaActualizada : cita
-    ))
+  async function actualizarCita(citaActualizada: Cita) {
+    const respuesta = await fetch(`${apiUrl}/api/eventos/${citaActualizada.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        idUsuario: citaActualizada.idUsuario,
+        tipo: citaActualizada.tipo,
+        fecha: citaActualizada.fecha,
+        horaInicio: citaActualizada.hora,
+        horaFin: citaActualizada.horaFin,
+        estado: citaActualizada.estado,
+      }),
+    })
+    if (!respuesta.ok) throw new Error('No se pudo actualizar el acceso.')
+    setCitas((actuales) => actuales.map((cita) => cita.id === citaActualizada.id
+      ? { ...citaActualizada, qr: 'Pendiente', qrToken: '' }
+      : cita))
   }
 
-  function eliminarCita(id: number) {
+  async function eliminarCita(id: number) {
+    const respuesta = await fetch(`${apiUrl}/api/eventos/${id}`, { method: 'DELETE' })
+    if (!respuesta.ok) throw new Error('No se pudo eliminar el acceso.')
     setCitas((actuales) => actuales.filter((cita) => cita.id !== id))
   }
 
+  async function generarQr(id: number) {
+    const respuesta = await fetch(`${apiUrl}/api/acceso/generar-qr`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ idDetalleEvento: id }),
+    })
+  if (!respuesta.ok) throw new Error('No se pudo generar el código QR.')
+  const resultado = await respuesta.json() as { codigoQr: string }
+    setCitas((actuales) => actuales.map((cita) => cita.id === id
+      ? { ...cita, qr: 'Generado', qrToken: resultado.codigoQr }
+      : cita))
+  return resultado.codigoQr
+  }
+
   return (
-    <CitasContext.Provider value={{ citas, agregarCita, actualizarCita, eliminarCita }}>
+    <CitasContext.Provider value={{ citas, usuarios, cargando, error, agregarCita, actualizarCita, eliminarCita, generarQr }}>
       <Outlet />
     </CitasContext.Provider>
   )

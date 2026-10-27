@@ -1,0 +1,4 @@
+{
+    "dotnet.defaultSolution": "SistemaSMARTLOCK.sln",
+    "dotnet.preferCSharpExtension": true
+}

@@ -1,10 +1,11 @@
 //Liberia de iconos para la cabecera
 import {Bell, Menu, User} from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 //Liberia para determinar la ubicacion dentro de la pagina web
 import {Link, useLocation} from "react-router-dom";
 //Libreria para navegar al inicio de sesion desde la cabecera
 import { useNavigate } from "react-router-dom";
+import { cerrarSesion, obtenerUsuarioSesion } from '../utils/usuarioSesion'
 
 //Constante para determinar el nombre a mostrar en la cabecera dependiendo de la ubicacion dentro de la pagina web
 const pageName: Record<string, string> = {
@@ -24,6 +25,16 @@ type HeaderProps = {
 export function Header({ alAbrirMenu }: HeaderProps){
     //Constante para determinar la ubicacion actual en la pagina
     const location = useLocation();
+    const [usuario, setUsuario] = useState(obtenerUsuarioSesion)
+
+    useEffect(() => {
+        function actualizarUsuario() {
+            setUsuario(obtenerUsuarioSesion())
+        }
+
+        window.addEventListener('smartlock.usuario.actualizado', actualizarUsuario)
+        return () => window.removeEventListener('smartlock.usuario.actualizado', actualizarUsuario)
+    }, [])
     
     //Constante que determina basandose en la ubicacion actual el nombre a mostrar en la cabecera
     const currentPage = location.pathname.startsWith('/eventos/')
@@ -37,6 +48,7 @@ export function Header({ alAbrirMenu }: HeaderProps){
     const navigate = useNavigate()
     //Funcion encargada de cerrar sesion y redirigir al inicio de sesion
     function handleLogout() {
+        cerrarSesion()
         //Envia al inicio de sesion 
         navigate('/login')
     }
@@ -73,7 +85,8 @@ export function Header({ alAbrirMenu }: HeaderProps){
                     {/*Menu desplegable*/}
                     {isMenuOpen && (
                         <div className="absolute right-0 top-full z-50 mt-2 w-48 rounded-lg border border-gray-200 bg-white p-2 shadow-lg">
-                            <span className="block w-full border-b border-gray-200 pb-2 text-center text-base font-medium text-slate-700">Administrador</span>
+                            <span className="block w-full border-b border-gray-200 pb-2 text-center text-base font-medium text-slate-700">{usuario?.nombreUsuario ?? 'Usuario'}</span>
+                            <span className="block w-full truncate border-b border-gray-200 px-2 py-2 text-center text-xs text-slate-500">{usuario?.rol ?? 'Sin rol asignado'}</span>
                             <Link 
                             to="/perfil"
                             onClick={() => setIsMenuOpen(false)}

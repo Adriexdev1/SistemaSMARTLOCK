@@ -12,20 +12,17 @@ import { useState, type FormEvent } from "react"
 //Importacion de la barra de busqueda
 import BarraBusqueda from "../components/componentesPaginas/BarraBusqueda"
 
-//Constante para aplicar color al estado de la visita
 const coloresEstado: Record<Cita['estado'], string> = {
   Activo: 'bg-emerald-100 text-emerald-700',
   Completado: 'bg-blue-100 text-blue-700',
 }
 
-//Constante para aplicar color al estado del QR
 const coloresQr: Record<Cita['qr'], string> = {
   Generado: 'bg-emerald-100 text-emerald-700',
   Pendiente: 'bg-amber-100 text-amber-700',
   Utilizado: 'bg-slate-100 text-slate-600',
 }
 
-//Variable para estructura de Datos en la tabla
 function crearColumnasCitas(
   verCita: (cita: Cita) => void,
   verQr: (cita: Cita) => void,
@@ -33,84 +30,29 @@ function crearColumnasCitas(
   confirmarBorrado: (cita: Cita) => void,
 ) {
   return [
-  {
-    header: 'Fecha',
-    width: '12%',
-    render: (cita: Cita) => {
+    {
+      header: 'Fecha', width: '12%',
+      render: (cita: Cita) => {
         const [anio, mes, dia] = cita.fecha.split('-')
-        return (
-            <span className="font-mono text-slate-500">
-                {dia}/{mes}/{anio}
-            </span>
-        )
+        return <span className="font-mono text-slate-500">{dia}/{mes}/{anio}</span>
+      },
     },
-  },
-  {
-    header: 'Hora',
-    width: '9%',
-    render: (cita: Cita) => (
-      <span className="font-mono font-semibold">{cita.hora}</span>
-    ),
-  },
-  {
-    header: 'Visitante',
-    width: '21%',
-    render: (cita: Cita) => (
-      <span className="font-semibold text-slate-800">{cita.visitante}</span>
-    ),
-  },
-  {
-    header: 'Tipo',
-    width: '17%',
-    render: (cita: Cita) => (
-      <span className="font-mono text-slate-500">
-        {cita.tipo}
-      </span>
-    ),
-  },
-  {
-    header: 'Estado',
-    width: '12%',
-    render: (cita: Cita) => (
-        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${coloresEstado[cita.estado]}`}>
-        {cita.estado}
-        </span>
-    ),
-  },
-  {
-    header: 'QR',
-    width: '12%',
-    render: (cita: Cita) =>(
-        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${coloresQr[cita.qr]}`}>
-        {cita.qr}
-        </span>
-    ),
-  },
-  {
-    header: 'Acciones',
-    width: '17%',
-    render: (cita: Cita) => (
-    //Contenedor central de los iconos
-    <div className="flex items-center gap-1">
-        {/*Boton de ver cita*/}
-        <button type="button" onClick={() => verCita(cita)} aria-label={`Ver cita ${cita.id}`} className="flex h-8 w-8 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-slate-400">
-            <Eye size={16} strokeWidth={2.5} />
-        </button>
-        {/*Boton de ver QR*/}
-        <button type="button" onClick={() => verQr(cita)} aria-label={`Mostrar QR de cita ${cita.id}`} className="flex h-8 w-8 items-center justify-center rounded-md text-violet-600 transition-colors hover:bg-violet-100 hover:text-violet-800 focus-visible:outline-2 focus-visible:outline-violet-400">
-            <QrCode size={16} strokeWidth={2.5}/>
-        </button>
-        {/*Boton de editar cita*/}
-        <button type="button" onClick={() => editarCita(cita)} aria-label={`Editar cita ${cita.id}`} className="flex h-8 w-8 items-center justify-center rounded-md text-blue-600 transition-colors hover:bg-blue-100 hover:text-blue-800 focus-visible:outline-2 focus-visible:outline-blue-400">
-            <Pencil size={16} strokeWidth={2.5}/>
-        </button>
-        {/*Boton de eliminar cita*/}
-        <button type="button" onClick={() => confirmarBorrado(cita)} aria-label={`Eliminar cita ${cita.id}`} className="flex h-8 w-8 items-center justify-center rounded-md text-rose-600 transition-colors hover:bg-rose-100 hover:text-rose-800 focus-visible:outline-2 focus-visible:outline-rose-400">
-            <Trash size={16} strokeWidth={2.5}/>
-            </button>
-    </div>
-    ),
-  },
+    { header: 'Hora', width: '9%', render: (cita: Cita) => <span className="font-mono font-semibold">{cita.hora}</span> },
+    { header: 'Visitante', width: '21%', render: (cita: Cita) => <span className="font-semibold text-slate-800">{cita.visitante}</span> },
+    { header: 'Tipo', width: '17%', render: (cita: Cita) => <span className="font-mono text-slate-500">{cita.tipo}</span> },
+    { header: 'Estado', width: '12%', render: (cita: Cita) => <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${coloresEstado[cita.estado]}`}>{cita.estado}</span> },
+    { header: 'QR', width: '12%', render: (cita: Cita) => <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${coloresQr[cita.qr]}`}>{cita.qr}</span> },
+    {
+      header: 'Acciones', width: '17%',
+      render: (cita: Cita) => (
+        <div className="flex items-center gap-1">
+          <button type="button" onClick={() => verCita(cita)} aria-label={`Ver cita ${cita.id}`} className="flex h-8 w-8 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100"><Eye size={16} /></button>
+          <button type="button" onClick={() => verQr(cita)} aria-label={`Mostrar QR de cita ${cita.id}`} className="flex h-8 w-8 items-center justify-center rounded-md text-violet-600 hover:bg-violet-100"><QrCode size={16} /></button>
+          <button type="button" onClick={() => editarCita(cita)} aria-label={`Editar cita ${cita.id}`} className="flex h-8 w-8 items-center justify-center rounded-md text-blue-600 hover:bg-blue-100"><Pencil size={16} /></button>
+          <button type="button" onClick={() => confirmarBorrado(cita)} aria-label={`Eliminar cita ${cita.id}`} className="flex h-8 w-8 items-center justify-center rounded-md text-rose-600 hover:bg-rose-100"><Trash size={16} /></button>
+        </div>
+      ),
+    },
   ]
 }
 
@@ -124,93 +66,99 @@ function normalizar(texto: string) {
 }
 
 export default function Citas(){
-  //Constantes para llevar acabo acciones con las citas
   const navigate = useNavigate()
-  const { citas, agregarCita,  eliminarCita } = useCitas()
+  const { citas, usuarios, cargando, error: errorCarga, agregarCita, eliminarCita, generarQr } = useCitas()
   const [citaQr, setCitaQr] = useState<Cita | null>(null)
   const [citaAEliminar, setCitaAEliminar] = useState<Cita | null>(null)
-
-  //Apartado visual para agregar las citas
+  const [guardando, setGuardando] = useState(false)
+  const [errorAccion, setErrorAccion] = useState('')
   const [modalNuevoAbierto, setModalNuevoAbierto] = useState(false)
-  const [nuevoAcceso, setNuevoAcceso] = useState({
-    visitante: '',
-    tipo: '',
-    fecha: '',
-    hora: '',
-    horaFin: '',
+  const [nuevoAcceso, setNuevoAcceso] = useState({ idUsuario: '', tipo: '', fecha: '', hora: '', horaFin: '' })
+  const [busqueda, setBusqueda] = useState('')
+  const [estado, setEstado] = useState('Todos')
+  const [fecha, setFecha] = useState('')
+  const [paginaActual, setPaginaActual] = useState(1)
+  const tamanoPagina = 5
+
+  const citasFiltradas = citas.filter((cita) => {
+    const fechaLegible = new Date(`${cita.fecha}T00:00:00`).toLocaleDateString('es-MX')
+    const campos = normalizar(`${cita.id} ${cita.fecha} ${fechaLegible} ${cita.hora} ${cita.horaFin} ${cita.visitante} ${cita.tipo} ${cita.estado} ${cita.qr}`)
+    const terminos = normalizar(busqueda).split(/\s+/).filter(Boolean)
+    return terminos.every((termino) => campos.includes(termino)) &&
+      (estado === 'Todos' || cita.estado === estado) &&
+      (fecha === '' || cita.fecha === fecha)
   })
 
-    //Constantes para llevar acabo las busquedas dentro de las citas
-    const [busqueda, setBusqueda] = useState('')
-    const [estado, setEstado] = useState('Todos')
-    const [fecha, setFecha] = useState('')
-    const [paginaActual, setPaginaActual] = useState(1)    
-    const tamanoPagina = 5
-    
-    //Constante para realizar el filtro de las citas
-    const citasFiltradas = citas.filter((cita) => {
-        //Constantes para busqueda en base al texto
-         const fechaLegible = new Date(`${cita.fecha}T00:00:00`).toLocaleDateString('es-MX')
-         
-         //Campos utilizados en las busquedas
-        const campos = normalizar(
-          `${cita.id} ${cita.fecha} ${fechaLegible} ${cita.hora} ${cita.horaFin} ` +
-          `${cita.visitante} ${cita.tipo} ${cita.estado} ${cita.qr}`
-        )
+  const totalPaginas = Math.max(1, Math.ceil(citasFiltradas.length / tamanoPagina))
+  const pagina = Math.min(paginaActual, totalPaginas)
+  const inicio = (pagina - 1) * tamanoPagina
+  const citasPagina = citasFiltradas.slice(inicio, inicio + tamanoPagina)
+  const columnasCitas = crearColumnasCitas(
+    (cita) => navigate(`/eventos/${cita.id}`),
+    (cita) => void abrirQr(cita),
+    (cita) => navigate(`/eventos/${cita.id}?editar=1`),
+    (cita) => setCitaAEliminar(cita),
+  )
 
-        //Termino para realizar la busqueda y encontrar las coincidencias
-        const terminos = normalizar(busqueda).split(/\s+/).filter(Boolean)
-        const coincideBusqueda = terminos.every((termino) =>
-            campos.includes(termino)
-        )
-        const coincideEstado = estado === 'Todos' || cita.estado === estado
-        const coincideFecha = fecha === '' || cita.fecha === fecha
-
-  return coincideBusqueda && coincideEstado && coincideFecha
-})
-    
-    const totalPaginas = Math.max(
-        1, Math.ceil(citasFiltradas.length / tamanoPagina)
-    )
-    
-    const pagina = Math.min(paginaActual, totalPaginas)
-    const inicio = (pagina - 1) * tamanoPagina
-    const citasPagina = citasFiltradas.slice(inicio, inicio + tamanoPagina)
-    const columnasCitas = crearColumnasCitas(
-      (cita) => navigate(`/eventos/${cita.id}`),
-      (cita) => setCitaQr(cita),
-      (cita) => navigate(`/eventos/${cita.id}?editar=1`),
-      (cita) => setCitaAEliminar(cita),
-    )
-
-    function borrarCita() {
-      if (!citaAEliminar) return
-      eliminarCita(citaAEliminar.id)
+  async function borrarCita() {
+    if (!citaAEliminar) return
+    setGuardando(true)
+    setErrorAccion('')
+    try {
+      await eliminarCita(citaAEliminar.id)
       setCitaAEliminar(null)
+    } catch (error) {
+      setErrorAccion(error instanceof Error ? error.message : 'No se pudo eliminar el acceso.')
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  async function registrarAcceso(evento: FormEvent<HTMLFormElement>) {
+    evento.preventDefault()
+    const usuario = usuarios.find((actual) => actual.id === Number(nuevoAcceso.idUsuario))
+    if (!usuario) {
+      setErrorAccion('Selecciona un usuario existente.')
+      return
     }
 
-    //Funcion encargada de manejar el formulario de nuevas citas
-    function registrarAcceso(evento: FormEvent<HTMLFormElement>) {
-      evento.preventDefault()
-      
-      agregarCita({
-        ...nuevoAcceso,
+    setGuardando(true)
+    setErrorAccion('')
+    try {
+      await agregarCita({
+        idUsuario: usuario.id,
+        visitante: usuario.nombre,
+        tipo: nuevoAcceso.tipo,
+        fecha: nuevoAcceso.fecha,
+        hora: nuevoAcceso.hora,
+        horaFin: nuevoAcceso.horaFin,
         estado: 'Activo',
-        qr: 'Pendiente',        
-        qrToken: '',        
-        historial: [],
       })
-      
-      setNuevoAcceso({
-        visitante: '',
-        tipo: '',
-        fecha: '',
-        hora: '',
-        horaFin: '',
-      })
-  setModalNuevoAbierto(false)
-}
-return (
+      setNuevoAcceso({ idUsuario: '', tipo: '', fecha: '', hora: '', horaFin: '' })
+      setModalNuevoAbierto(false)
+    } catch (error) {
+      setErrorAccion(error instanceof Error ? error.message : 'No se pudo guardar el acceso.')
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  async function abrirQr(cita: Cita) {
+    setCitaQr(cita)
+    setErrorAccion('')
+    if (cita.qr === 'Generado' && cita.qrToken) return
+    setGuardando(true)
+    try {
+      const codigoQr = await generarQr(cita.id)
+      setCitaQr({ ...cita, qr: 'Generado', qrToken: codigoQr })
+    } catch (error) {
+      setErrorAccion(error instanceof Error ? error.message : 'No se pudo generar el QR.')
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  return (
   <>
   {/*En móvil los filtros se apilan y en pantallas sm se alinean en una fila*/}
       <section className="mb-5 flex flex-wrap items-center justify-between gap-4">
@@ -225,13 +173,19 @@ return (
 
       <button
         type="button"
-        onClick={() => setModalNuevoAbierto(true)}
-        className="inline-flex items-center gap-2 rounded-md bg-amber-500 px-4 py-2 font-medium text-slate-950 hover:bg-amber-400"
+        onClick={() => {
+          setErrorAccion('')
+          setModalNuevoAbierto(true)
+        }}
+        disabled={cargando || usuarios.length === 0}
+        className="inline-flex items-center gap-2 rounded-md bg-amber-500 px-4 py-2 font-medium text-slate-950 hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
       >
         <Plus size={18} aria-hidden="true" />
         Nuevo acceso
       </button>
     </section>
+    {(errorCarga || errorAccion) && <p role="alert" className="mb-4 rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{errorAccion || errorCarga}</p>}
+    {cargando && <p role="status" className="py-8 text-center text-sm text-slate-500">Cargando accesos...</p>}
     <BarraBusqueda
       valor={busqueda}
       alCambiar={(valor) => {
@@ -271,7 +225,7 @@ return (
     <div className="mt-4">
       <DataTable
         columns={columnasCitas}
-        rows={citasPagina}
+        rows={cargando ? [] : citasPagina}
         getRowKey={(cita) => String(cita.id)}
         footer={
           <Paginacion
@@ -301,14 +255,15 @@ return (
       <form onSubmit={registrarAcceso} className="mt-5 space-y-4">
         <label className="block text-sm text-slate-600">
           Visitante / Empleado
-          <input
+          <select
             required
-            value={nuevoAcceso.visitante}
-            onChange={(evento) =>
-              setNuevoAcceso({ ...nuevoAcceso, visitante: evento.target.value })
-            }
-            className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3"
-          />
+            value={nuevoAcceso.idUsuario}
+            onChange={(evento) => setNuevoAcceso({ ...nuevoAcceso, idUsuario: evento.target.value })}
+            className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3"
+          >
+            <option value="">Selecciona un usuario</option>
+            {usuarios.map((usuario) => <option key={usuario.id} value={usuario.id}>{usuario.nombre}</option>)}
+          </select>
         </label>
 
         <label className="block text-sm text-slate-600">
@@ -367,16 +322,20 @@ return (
         <div className="flex flex-wrap justify-end gap-2 pt-2">
           <button
             type="button"
-            onClick={() => setModalNuevoAbierto(false)}
+            onClick={() => {
+              setModalNuevoAbierto(false)
+              setErrorAccion('')
+            }}
             className="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-600"
           >
             Cancelar
           </button>
           <button
             type="submit"
-            className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950"
+            disabled={guardando || usuarios.length === 0}
+            className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950 disabled:cursor-wait disabled:opacity-60"
           >
-            Crear acceso
+            {guardando ? 'Guardando...' : 'Crear acceso'}
           </button>
         </div>
       </form>
@@ -404,11 +363,10 @@ return (
               <p className="text-center text-sm text-slate-500">
                 QR para <span className="font-medium text-slate-800">{citaQr.visitante}</span>
               </p>
-              <p className="text-center text-xs text-amber-700">Código de demostración; todavía no está vinculado a la API.</p>
             </div>
           ) : (
             <div className="rounded-lg bg-amber-50 p-4 text-sm text-amber-800">
-              Este acceso todavía no tiene un código QR generado.
+              {guardando ? 'Generando código QR...' : errorAccion || 'No se pudo generar el código QR.'}
             </div>
           )}
         </section>
@@ -424,9 +382,10 @@ return (
           <p id="delete-dialog-description" className="mt-2 text-sm text-slate-600">
             Se eliminará la cita de {citaAEliminar.visitante}. Esta acción no se puede deshacer.
           </p>
+          {errorAccion && <p role="alert" className="mt-3 text-sm text-rose-600">{errorAccion}</p>}
           <div className="mt-6 flex justify-end gap-2">
             <button type="button" onClick={() => setCitaAEliminar(null)} className="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50">Cancelar</button>
-            <button type="button" onClick={borrarCita} className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700">Eliminar acceso</button>
+            <button type="button" disabled={guardando} onClick={() => void borrarCita()} className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700 disabled:cursor-wait disabled:opacity-60">{guardando ? 'Eliminando...' : 'Eliminar acceso'}</button>
           </div>
         </section>
       </div>

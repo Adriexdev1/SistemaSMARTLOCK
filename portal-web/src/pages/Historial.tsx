@@ -1,7 +1,7 @@
 import { Download } from "lucide-react"
 import Paginacion from "../components/PieTabla"
 import DataTable from "../components/TablaBase"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import FiltroHistorial, {type ValoresFiltrosHistorial} from "../components/componentesPaginas/FiltrosHistorial"
 import * as XLSX from 'xlsx'
 
@@ -12,30 +12,21 @@ type Historial = {
   hora: string
   usuario: string
   cita: number
-  resultado: 'Autorizado' | 'Rechazado'
-  metodo_acceso: 'QR + PIN' | 'Solo QR' | 'QR invalido' | 'PIN incorrecto'
+  resultado: string
+  metodo_acceso: string
 }
 
-const historial: Historial[] = [
-  {
-    id: 1,
-    fecha: '2026-08-28',
-    hora: '08:00:00',
-    usuario:'Carlos Mendoza',
-    cita: 1,
-    resultado: 'Autorizado',
-    metodo_acceso:'QR + PIN',
-  },
-    {
-    id: 2,
-    fecha: '2026-08-28',
-    hora: '08:00:00',
-    usuario:'Carlos Mendoza',
-    cita: 2,
-    resultado: 'Rechazado',
-    metodo_acceso:'QR + PIN',
-  },
-]
+type HistorialApi = {
+  id: number
+  fecha: string
+  hora: string
+  usuario: string
+  idDetalleEvento: number
+  resultado: string
+  metodoAcceso: string
+}
+
+const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000'
 
 const coloresResultado: Record<Historial['resultado'], string> ={
     Autorizado: 'bg-emerald-100 text-emerald-700',
@@ -102,6 +93,9 @@ const columnasHistorial = [
 ]
 
 export default function Historial(){
+  const [historial, setHistorial] = useState<Historial[]>([])
+  const [cargando, setCargando] = useState(true)
+  const [error, setError] = useState('')
     //Constantes para determinar paginas
     const [paginaActual, setPaginaActual] = useState(1)
     const [filtros, setFiltros] = useState<ValoresFiltrosHistorial>({
@@ -111,6 +105,33 @@ export default function Historial(){
       usuario: 'Todos',
     })
     const tamanoPagina = 5
+
+    useEffect(() => {
+      async function cargarHistorial() {
+        setCargando(true)
+        setError('')
+        try {
+          const respuesta = await fetch(`${apiUrl}/api/historial`)
+          if (!respuesta.ok) throw new Error('No se pudo cargar el historial.')
+          const datos = await respuesta.json() as HistorialApi[]
+          setHistorial(datos.map((registro) => ({
+            id: registro.id,
+            fecha: registro.fecha,
+            hora: registro.hora,
+            usuario: registro.usuario,
+            cita: registro.idDetalleEvento,
+            resultado: registro.resultado,
+            metodo_acceso: registro.metodoAcceso,
+          })))
+        } catch (errorCarga) {
+          setError(errorCarga instanceof Error ? errorCarga.message : 'No se pudo conectar con la API.')
+        } finally {
+          setCargando(false)
+        }
+      }
+
+      void cargarHistorial()
+    }, [])
     
     const registrosFiltrados = historial.filter((registro) => {
       const cumpleFechaInicio =
@@ -137,18 +158,12 @@ export default function Historial(){
     const registrosPagina = registrosFiltrados.slice(
         inicio, inicio + tamanoPagina)
 
-    //Recuento de Registros totales - Autorizados y Rechazados 
     //Constante para total de registros
     const totalRegistros = registrosFiltrados.length
     //Registros autorizados
     const totalAutorizados = registrosFiltrados.filter(
         (registro) => registro.resultado === 'Autorizado'
     ).length
-    //Registros rechazados
-    const totalRechazados = registrosFiltrados.filter(
-        (registro) => registro.resultado === 'Rechazado'
-    ).length
-
     //Funcion para trabajar con los datos en un excel
     function exportarHistorial() {
       const datosExcel = registrosFiltrados.map((registro) => {
@@ -179,13 +194,14 @@ export default function Historial(){
           Historial de Accesos
         </h2>
         <p className="mt-1 text-sm text-slate-500">
-          Consulta los registros de los accesos al sistema
+          Consulta los accesos completados registrados en el sistema
         </p>
       </div>
 
       <button
         type="button"
         onClick={exportarHistorial}
+        disabled={cargando || registrosFiltrados.length === 0}
         className="inline-flex items-center gap-2 rounded-md bg-green-300 px-4 py-2 font-medium text-slate-900 hover:bg-green-500">
         
         <Download size={18} aria-hidden="true" />
@@ -193,8 +209,12 @@ export default function Historial(){
       </button>
     </section>
 
+    {error && <p role="alert" className="mb-4 rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</p>}
+    {cargando && <p role="status" className="py-8 text-center text-sm text-slate-500">Cargando historial...</p>}
+
     {/*Seccion de los filtros*/}
     <FiltroHistorial
+      usuarios={[...new Set(historial.map((registro) => registro.usuario))]}
       alAplicar={(nuevosFiltros) => {
         setFiltros(nuevosFiltros)
         setPaginaActual(1)
@@ -212,14 +232,11 @@ export default function Historial(){
             {totalAutorizados} Autorizados
         </span>
         
-        <span className="rounded-full bg-rose-100 px-4 py-2 font-semibold text-rose-700">
-            {totalRechazados} Rechazados
-        </span>
     </section>
 
     <DataTable
     columns={columnasHistorial}
-    rows={registrosPagina}
+    rows={cargando ? [] : registrosPagina}
     getRowKey={(registro) => String(registro.id)}
     footer={
     <Paginacion

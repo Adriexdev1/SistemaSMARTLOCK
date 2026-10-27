@@ -3,6 +3,7 @@ import { useState, type FormEvent } from "react"
 import { Eye, EyeOff } from "lucide-react"
 //Importacion para manejo de rutas
 import { useNavigate } from "react-router-dom"
+import { guardarUsuarioSesion, type UsuarioSesion } from '../utils/usuarioSesion'
 
 export default function Login() {
   //Constantes para almacenar el valor de la navegacion, el correo, la contraseña
@@ -11,18 +12,40 @@ export default function Login() {
   const [contrasena, setContrasena] = useState('')
   const [mostrarContrasena, setMostrarContrasena] = useState(false)
   const [error, setError] = useState('')
+  const [cargando, setCargando] = useState(false)
 
   //Funcion para inicio de sesion
-  function iniciarSesion(evento: FormEvent<HTMLFormElement>){
+  async function iniciarSesion(evento: FormEvent<HTMLFormElement>){
     evento.preventDefault()
+    setError('')
+    setCargando(true)
 
-    //Condicional para determinar si el correo y contraseña son validos
-    if(correo === 'admin@smartlock.com' && contrasena === '2173754'){
-      navigate('/inicio')
-      return
+    try {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+      const respuesta = await fetch(`${apiUrl}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ correo, contrasena }),
+      })
+
+      if (!respuesta.ok) {
+        setError(respuesta.status === 401
+          ? 'Correo o contraseña incorrectos, o usuario inactivo'
+          : 'No se pudo iniciar sesión. Inténtalo de nuevo.')
+        return
+      }
+
+      const usuario: UsuarioSesion = await respuesta.json()
+      guardarUsuarioSesion({
+        ...usuario,
+        contrasenaCaracteres: Array.from(contrasena).length,
+      })
+      navigate('/inicio', { replace: true })
+    } catch {
+      setError('No se pudo conectar con la API. Verifica que esté ejecutándose.')
+    } finally {
+      setCargando(false)
     }
-
-    setError('Correo o contraseña incorrectos')
   }
 
   return (
@@ -91,9 +114,10 @@ export default function Login() {
         {/*Boton para iniciar sesion*/}
         <button
           type="submit"
+          disabled={cargando}
           className="h-12 w-full rounded-lg bg-amber-500 font-semibold text-slate-950 hover:bg-amber-400"
         >
-          Iniciar sesión
+          {cargando ? 'Verificando...' : 'Iniciar sesión'}
         </button>
       </form>
     </>

@@ -3,15 +3,11 @@ import { ChevronRight } from "lucide-react"
 //Importacion para conexion con interfaces
 import {Link} from 'react-router-dom'
 
-//Variable con la informacion de las visitas
-const visitas = [
-    { hora: '08:00', nombre: 'Carlos Mendoza', detalle: 'Turno matutino' },
-    { hora: '09:30', nombre: 'Grupo Logística NL', detalle: 'Visita proveedor' },
-    { hora: '11:00', nombre: 'Ing. Ramírez Torres', detalle: 'Supervisión IMSS' },
-    { hora: '14:00', nombre: 'Mantenimiento Rápido SA', detalle: 'Mantenimiento' },
-]
+type Visita = { hora: string; nombre: string; detalle: string; estado: string }
 
-export default function ProximasVisitas(){
+type ProximasVisitasProps = { visitas: Visita[]; cargando: boolean }
+
+export default function ProximasVisitas({ visitas, cargando }: ProximasVisitasProps){
     return(
         //Seccion para las proximas visitas
         <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
@@ -25,7 +21,11 @@ export default function ProximasVisitas(){
             </div>
 
             {/*Funcion para crear y mostrar los datos de cada visita */}
-            {visitas.map((visita) =>(
+            {cargando ? (
+                <p className="px-5 py-6 text-sm text-slate-500">Cargando accesos...</p>
+            ) : visitas.length === 0 ? (
+                <p className="px-5 py-6 text-sm text-slate-500">No hay accesos próximos.</p>
+            ) : visitas.map((visita) =>(
                 <div key={visita.hora}
                 className="flex min-h-[72px] items-center gap-4 border-b border-slate-100 px-5 last:border-0">
                     <time className="w-12 shrink-0 font-mono text-sm font-semibold text-slate-400">
@@ -36,7 +36,7 @@ export default function ProximasVisitas(){
                         <p className="truncate text-sm text-slate-400">{visita.detalle}</p>
                     </div>
                     <span className="shrink-0 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700">
-                        Activo
+                        {visita.estado}
                     </span>
                 </div>
 

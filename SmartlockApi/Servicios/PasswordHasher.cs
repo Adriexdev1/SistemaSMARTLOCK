@@ -18,19 +18,52 @@ namespace SmartlockApi.Servicios
         }
         public static bool Verificar(string valorPlano, string hashAlmacenado)
         {
-            if (string.IsNullOrWhiteSpace(hashAlmacenado)) return false;
-
-            var partes = hashAlmacenado.Split('.', 3);
-            if (partes.Length != 3) return false;
-
-            int iteraciones = int.Parse(partes[0]);
-            byte[] salt = Convert.FromBase64String(partes[1]);
-            byte[] hashEsperado = Convert.FromBase64String(partes[2]);
+            if (!TryObtenerComponentes(hashAlmacenado, out int iteraciones, out byte[] salt, out byte[] hashEsperado))
+                return false;
 
             byte[] hashCalculado = Rfc2898DeriveBytes.Pbkdf2(
                 valorPlano, salt, iteraciones, HashAlgorithmName.SHA256, hashEsperado.Length);
 
             return CryptographicOperations.FixedTimeEquals(hashCalculado, hashEsperado);
+        }
+
+        public static bool EsHashAlmacenado(string? valor)
+        {
+            return TryObtenerComponentes(valor, out _, out _, out _);
+        }
+
+        private static bool TryObtenerComponentes(
+            string? valor,
+            out int iteraciones,
+            out byte[] salt,
+            out byte[] hash)
+        {
+            iteraciones = 0;
+            salt = Array.Empty<byte>();
+            hash = Array.Empty<byte>();
+
+            if (string.IsNullOrWhiteSpace(valor))
+                return false;
+
+            string[] partes = valor.Split('.', 3);
+            if (partes.Length != 3 ||
+                !int.TryParse(partes[0], out iteraciones) ||
+                iteraciones <= 0 || iteraciones > 1_000_000)
+            {
+                return false;
+            }
+
+            try
+            {
+                salt = Convert.FromBase64String(partes[1]);
+                hash = Convert.FromBase64String(partes[2]);
+            }
+            catch (FormatException)
+            {
+                return false;
+            }
+
+            return salt.Length == TamanoSalt && hash.Length == TamanoHash;
         }
     }
 }

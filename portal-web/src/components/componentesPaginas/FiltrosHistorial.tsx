@@ -9,11 +9,13 @@ export type ValoresFiltrosHistorial = {
 
 type FiltrosHistorialProps = {
   alAplicar: (filtros: ValoresFiltrosHistorial) => void
+    usuarios: string[]
 }
 
 
 export default function FiltroHistorial({
     alAplicar,
+    usuarios,
 }: FiltrosHistorialProps) {
     
     const [fechaInicio, setFechaInicio] = useState('')
@@ -55,7 +57,6 @@ export default function FiltroHistorial({
 
             <option>Todos</option>
             <option>Autorizado</option>
-            <option>Rechazado</option>
         </select>
         </label>
         
@@ -69,8 +70,7 @@ export default function FiltroHistorial({
                 className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 sm:w-auto">
             
             <option>Todos</option>
-            <option>Carlos Mendoza</option>
-            <option>María López</option>
+            {usuarios.map((nombreUsuario) => <option key={nombreUsuario}>{nombreUsuario}</option>)}
         </select>
         </label>
 
