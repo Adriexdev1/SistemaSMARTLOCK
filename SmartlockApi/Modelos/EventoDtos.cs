@@ -5,26 +5,30 @@ namespace SmartlockApi.Modelos;
 /// <summary>Registro de un acceso realizado.</summary>
 public sealed record RegistroAccesoResponse(int Id, string Fecha, string Hora, string Resultado);
 
-/// <summary>Acceso programado con su participante y estado QR.</summary>
-public sealed record EventoResponse(
-    int Id,
+/// <summary>Participante asignado al evento con su QR individual.</summary>
+public sealed record ParticipanteEventoResponse(
     int IdDetalleEvento,
     int IdUsuario,
-    string Visitante,
+    string NombreUsuario,
+    string EstadoQr,
+    string? CodigoQr,
+    IReadOnlyList<RegistroAccesoResponse> Historial);
+
+/// <summary>Evento programado con todos sus participantes.</summary>
+public sealed record EventoResponse(
+    int IdEvento,
     string Tipo,
     string Fecha,
     string Hora,
     string HoraFin,
     string Estado,
-    string EstadoQr,
-    string? CodigoQr,
-    IReadOnlyList<RegistroAccesoResponse> Historial);
+    IReadOnlyList<ParticipanteEventoResponse> Participantes);
 
 /// <summary>Datos para programar un acceso para un usuario existente.</summary>
 public sealed record CrearEventoRequest
 {
-    [Range(1, int.MaxValue)]
-    public required int IdUsuario { get; init; }
+    [Required, MinLength(1)]
+    public required int[] IdUsuarios { get; init; }
 
     [Required, MaxLength(100)]
     public required string Tipo { get; init; }
@@ -37,9 +41,6 @@ public sealed record CrearEventoRequest
 /// <summary>Datos para modificar un acceso programado.</summary>
 public sealed record ActualizarEventoRequest
 {
-    [Range(1, int.MaxValue)]
-    public required int IdUsuario { get; init; }
-
     [Required, MaxLength(100)]
     public required string Tipo { get; init; }
 
@@ -49,4 +50,11 @@ public sealed record ActualizarEventoRequest
 
     [Required, RegularExpression("^(Activo|Completado)$")]
     public required string Estado { get; init; }
+}
+
+/// <summary>Usuario que se agregará a un evento.</summary>
+public sealed record AgregarParticipanteRequest
+{
+    [Range(1, int.MaxValue)]
+    public required int IdUsuario { get; init; }
 }

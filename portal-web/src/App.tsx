@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom
 import Login from './pages/Login'
 import DashboardLayout from './layouts/DashboardLayout'
 import Usuarios from './pages/Usuarios'
+import Roles from './pages/Roles'
 import Citas from './pages/Citas'
 import Historial from './pages/Historial'
 import Incidentes from './pages/Incidentes'
@@ -35,6 +36,7 @@ export default function App() {
           <Route element={<DashboardLayout />}>
            <Route path="/inicio" element={<Inicio/>} />
           <Route path="/usuarios" element={<Usuarios />} />
+          <Route path="/roles" element={<Roles />} />
           <Route element={<CitasProvider />}>
             <Route path="/eventos" element={<Citas />} />
             <Route path="/eventos/:id" element={<DetalleCita />} />

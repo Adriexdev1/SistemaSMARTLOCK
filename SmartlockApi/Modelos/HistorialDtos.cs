@@ -7,5 +7,6 @@ public sealed record HistorialResponse(
     string Hora,
     string Usuario,
     int IdDetalleEvento,
+    int IdEvento,
     string Resultado,
     string MetodoAcceso);

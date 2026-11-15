@@ -11,10 +11,11 @@ public sealed class HistorialRepositorio(IConfiguration configuration)
     public async Task<IReadOnlyList<HistorialResponse>> ListarAsync(CancellationToken cancellationToken)
     {
         const string consulta = """
-            SELECT de.id_detalle_evento, de.acceso_detalle_evento,
+            SELECT de.id_detalle_evento, e.id_evento, de.acceso_detalle_evento,
                    u.nombre_usuario, de.metodo_acceso
             FROM dbo.detalle_eventos de
             INNER JOIN dbo.usuarios u ON u.id_usuario = de.id_usuario
+            INNER JOIN dbo.eventos e ON e.id_evento = de.id_evento
             WHERE de.acceso_detalle_evento IS NOT NULL
             ORDER BY de.acceso_detalle_evento DESC;
             """;
@@ -29,6 +30,7 @@ public sealed class HistorialRepositorio(IConfiguration configuration)
         {
             var fecha = lector.GetDateTime(lector.GetOrdinal("acceso_detalle_evento"));
             int idDetalleEvento = lector.GetInt32(lector.GetOrdinal("id_detalle_evento"));
+            int idEvento = lector.GetInt32(lector.GetOrdinal("id_evento"));
             int ordinalMetodo = lector.GetOrdinal("metodo_acceso");
             registros.Add(new HistorialResponse(
                 idDetalleEvento,
@@ -36,6 +38,7 @@ public sealed class HistorialRepositorio(IConfiguration configuration)
                 fecha.ToString("HH:mm:ss"),
                 lector.GetString(lector.GetOrdinal("nombre_usuario")),
                 idDetalleEvento,
+                idEvento,
                 "Autorizado",
                 lector.IsDBNull(ordinalMetodo) ? "No registrado" : lector.GetString(ordinalMetodo)));
         }

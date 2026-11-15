@@ -11,7 +11,7 @@ type Historial = {
   fecha: string
   hora: string
   usuario: string
-  cita: number
+  idEvento: number
   resultado: string
   metodo_acceso: string
 }
@@ -21,7 +21,7 @@ type HistorialApi = {
   fecha: string
   hora: string
   usuario: string
-  idDetalleEvento: number
+  idEvento: number
   resultado: string
   metodoAcceso: string
 }
@@ -65,11 +65,11 @@ const columnasHistorial = [
     )
   },
   {
-    header: 'Cita',
+    header: 'ID',
     width: '10%',
     render: (registro: Historial) => 
-        <span className="font-mono text-base font-semibold text-orange-400"> 
-        #{registro.cita}
+        <span className="font-mono font-semibold text-slate-700">
+        {registro.idEvento}
         </span>
   },
   {
@@ -119,7 +119,7 @@ export default function Historial(){
             fecha: registro.fecha,
             hora: registro.hora,
             usuario: registro.usuario,
-            cita: registro.idDetalleEvento,
+            idEvento: registro.idEvento,
             resultado: registro.resultado,
             metodo_acceso: registro.metodoAcceso,
           })))
@@ -173,7 +173,7 @@ export default function Historial(){
           Fecha: `${dia}/${mes}/${anio}`,
           Hora: registro.hora,
           Usuario: registro.usuario,
-          Cita: `#${registro.cita}`,
+          ID: registro.idEvento,
           Resultado: registro.resultado,
           Método: registro.metodo_acceso,
         }

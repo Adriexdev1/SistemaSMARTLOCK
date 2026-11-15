@@ -13,6 +13,7 @@ public sealed class UsuariosRepositorio(IConfiguration configuration)
     {
         const string consulta = """
             SELECT u.id_usuario, u.nombre_usuario, u.correo_usuario, u.telefono_usuario,
+                   u.nacimiento_usuario, CAST(CASE WHEN u.pin_usuario IS NULL THEN 0 ELSE 1 END AS BIT) AS tiene_pin,
                    u.id_rol, r.nombre_rol, u.estado_usuario
             FROM dbo.usuarios u
             LEFT JOIN dbo.roles r ON r.id_rol = u.id_rol
@@ -35,6 +36,7 @@ public sealed class UsuariosRepositorio(IConfiguration configuration)
     {
         const string consulta = """
             SELECT u.id_usuario, u.nombre_usuario, u.correo_usuario, u.telefono_usuario,
+                   u.nacimiento_usuario, CAST(CASE WHEN u.pin_usuario IS NULL THEN 0 ELSE 1 END AS BIT) AS tiene_pin,
                    u.id_rol, r.nombre_rol, u.estado_usuario
             FROM dbo.usuarios u
             LEFT JOIN dbo.roles r ON r.id_rol = u.id_rol
@@ -68,20 +70,29 @@ public sealed class UsuariosRepositorio(IConfiguration configuration)
     public async Task<int> CrearAsync(
         CrearUsuarioRequest request,
         string contrasenaHash,
+        string? pinHash,
         CancellationToken cancellationToken)
     {
         const string consulta = """
             INSERT INTO dbo.usuarios
-                (nombre_usuario, correo_usuario, contrasena_usuario, id_rol, estado_usuario)
+                (nombre_usuario, telefono_usuario, correo_usuario, contrasena_usuario,
+                 nacimiento_usuario, pin_usuario, id_rol, estado_usuario)
             OUTPUT INSERTED.id_usuario
-            VALUES (@Nombre, @Correo, @Contrasena, @IdRol, 1);
+            VALUES (@Nombre, @Telefono, @Correo, @Contrasena,
+                    @FechaNacimiento, @PinHash, @IdRol, 1);
             """;
 
         await using var conexion = new SqlConnection(_cadenaConexion);
         await using var comando = new SqlCommand(consulta, conexion);
         comando.Parameters.Add("@Nombre", SqlDbType.VarChar, 200).Value = request.NombreUsuario.Trim();
+        comando.Parameters.Add("@Telefono", SqlDbType.VarChar, 25).Value =
+            string.IsNullOrWhiteSpace(request.TelefonoUsuario)
+                ? DBNull.Value
+                : request.TelefonoUsuario.Trim();
         comando.Parameters.Add("@Correo", SqlDbType.VarChar, 100).Value = request.CorreoUsuario.Trim();
         comando.Parameters.Add("@Contrasena", SqlDbType.VarChar, 100).Value = contrasenaHash;
+        comando.Parameters.Add("@FechaNacimiento", SqlDbType.Date).Value = request.FechaNacimiento!.Value.Date;
+        comando.Parameters.Add("@PinHash", SqlDbType.VarChar, 100).Value = (object?)pinHash ?? DBNull.Value;
         comando.Parameters.Add("@IdRol", SqlDbType.Int).Value = (object?)request.IdRol ?? DBNull.Value;
 
         await conexion.OpenAsync(cancellationToken);
@@ -91,12 +102,20 @@ public sealed class UsuariosRepositorio(IConfiguration configuration)
     public async Task<bool> ActualizarAsync(
         int idUsuario,
         ActualizarUsuarioRequest request,
+        string? pinHash,
         CancellationToken cancellationToken)
     {
         const string consulta = """
             UPDATE dbo.usuarios
             SET nombre_usuario = @Nombre,
                 correo_usuario = @Correo,
+                telefono_usuario = @Telefono,
+                nacimiento_usuario = @FechaNacimiento,
+                pin_usuario = CASE
+                    WHEN @PinHash IS NOT NULL THEN @PinHash
+                    WHEN @QuitarPin = 1 THEN NULL
+                    ELSE pin_usuario
+                END,
                 id_rol = @IdRol,
                 estado_usuario = @Estado
             WHERE id_usuario = @IdUsuario;
@@ -106,6 +125,13 @@ public sealed class UsuariosRepositorio(IConfiguration configuration)
         await using var comando = new SqlCommand(consulta, conexion);
         comando.Parameters.Add("@Nombre", SqlDbType.VarChar, 200).Value = request.NombreUsuario.Trim();
         comando.Parameters.Add("@Correo", SqlDbType.VarChar, 100).Value = request.CorreoUsuario.Trim();
+        comando.Parameters.Add("@Telefono", SqlDbType.VarChar, 25).Value =
+            string.IsNullOrWhiteSpace(request.TelefonoUsuario)
+                ? DBNull.Value
+                : request.TelefonoUsuario.Trim();
+        comando.Parameters.Add("@FechaNacimiento", SqlDbType.Date).Value = request.FechaNacimiento!.Value.Date;
+        comando.Parameters.Add("@PinHash", SqlDbType.VarChar, 100).Value = (object?)pinHash ?? DBNull.Value;
+        comando.Parameters.Add("@QuitarPin", SqlDbType.Bit).Value = request.QuitarPin;
         comando.Parameters.Add("@IdRol", SqlDbType.Int).Value = (object?)request.IdRol ?? DBNull.Value;
         comando.Parameters.Add("@Estado", SqlDbType.Int).Value = request.EstadoUsuario;
         comando.Parameters.Add("@IdUsuario", SqlDbType.Int).Value = idUsuario;
@@ -134,6 +160,8 @@ public sealed class UsuariosRepositorio(IConfiguration configuration)
             lector.GetString(lector.GetOrdinal("nombre_usuario")),
             lector.GetString(lector.GetOrdinal("correo_usuario")),
             lector.IsDBNull(lector.GetOrdinal("telefono_usuario")) ? null : lector.GetString(lector.GetOrdinal("telefono_usuario")),
+            lector.IsDBNull(lector.GetOrdinal("nacimiento_usuario")) ? null : lector.GetDateTime(lector.GetOrdinal("nacimiento_usuario")),
+            lector.GetBoolean(lector.GetOrdinal("tiene_pin")),
             lector.IsDBNull(ordinalIdRol) ? null : lector.GetInt32(ordinalIdRol),
             lector.IsDBNull(ordinalNombreRol) ? null : lector.GetString(ordinalNombreRol),
             lector.GetInt32(lector.GetOrdinal("estado_usuario")));

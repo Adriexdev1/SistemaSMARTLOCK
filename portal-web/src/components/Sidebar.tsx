@@ -1,7 +1,7 @@
     //Liberia de herramientas para navegacion en la pagina web
     import {Link, useLocation} from 'react-router-dom'
     //Liberia de iconos para la barra lateral
-    import {House, Users, Calendar, RotateCcwClock, AlertTriangle, User, LockKeyhole,LogOut} from 'lucide-react'
+    import {House, Users, Shield, Calendar, RotateCcwClock, AlertTriangle, User, LockKeyhole,LogOut} from 'lucide-react'
     //Libreria para navegacion en la pagina web
     import { useNavigate } from 'react-router-dom'
     import { cerrarSesion } from '../utils/usuarioSesion'
@@ -20,6 +20,7 @@
         const menuItems = [
             { name: 'Inicio', path: '/inicio', icon: House },
             { name: 'Usuarios', path: '/usuarios', icon: Users },
+            { name: 'Roles', path: '/roles', icon: Shield },
             { name: 'Citas / Eventos', path: '/eventos', icon: Calendar },
             { name: 'Historial', path: '/historial', icon: RotateCcwClock },
             { name: 'Incidentes', path: '/incidentes', icon: AlertTriangle },

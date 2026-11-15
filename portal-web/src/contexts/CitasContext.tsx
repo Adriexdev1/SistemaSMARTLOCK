@@ -11,35 +11,42 @@ export type AccesoCita = {
   resultado: string
 }
 
-export type Cita = {
-  id: number
+export type ParticipanteCita = {
+  idDetalleEvento: number
   idUsuario: number
-  fecha: string
-  hora: string
-  horaFin: string
-  visitante: string
-  tipo: string
-  estado: EstadoCita
+  nombre: string
   qr: EstadoQr
   qrToken: string
   historial: AccesoCita[]
 }
 
+export type Cita = {
+  id: number
+  fecha: string
+  hora: string
+  horaFin: string
+  tipo: string
+  estado: EstadoCita
+  participantes: ParticipanteCita[]
+}
+
 export type UsuarioAcceso = { id: number; nombre: string }
 
 type EventoApi = {
-  id: number
-  idDetalleEvento: number
-  idUsuario: number
-  visitante: string
+  idEvento: number
   tipo: string
   fecha: string
   hora: string
   horaFin: string
   estado: EstadoCita
-  estadoQr: EstadoQr
-  codigoQr: string | null
-  historial: AccesoCita[]
+  participantes: {
+    idDetalleEvento: number
+    idUsuario: number
+    nombreUsuario: string
+    estadoQr: EstadoQr
+    codigoQr: string | null
+    historial: AccesoCita[]
+  }[]
 }
 
 type UsuarioApi = { idUsuario: number; nombreUsuario: string; estadoUsuario: number }
@@ -49,27 +56,48 @@ type CitasContextValue = {
   usuarios: UsuarioAcceso[]
   cargando: boolean
   error: string
-  agregarCita: (cita: Omit<Cita, 'id' | 'qr' | 'qrToken' | 'historial'>) => Promise<void>
+  agregarCita: (cita: Omit<Cita, 'id' | 'participantes'>, idUsuarios: number[]) => Promise<void>
   actualizarCita: (citaActualizada: Cita) => Promise<void>
   eliminarCita: (id: number) => Promise<void>
-    generarQr: (id: number) => Promise<string>
+  agregarParticipante: (idEvento: number, idUsuario: number) => Promise<void>
+  eliminarParticipante: (idEvento: number, idDetalleEvento: number) => Promise<void>
+  generarQr: (idDetalleEvento: number) => Promise<string>
 }
 
 const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000'
 
+function horaConSegundos(hora: string) {
+  return hora.length === 5 ? `${hora}:00` : hora
+}
+
+async function leerError(respuesta: Response, mensaje: string) {
+  try {
+    const cuerpo = await respuesta.json() as { mensaje?: string; title?: string; errors?: Record<string, string[]> }
+    const detalleValidacion = cuerpo.errors
+      ? Object.values(cuerpo.errors).flat().join(' ')
+      : ''
+    return cuerpo.mensaje ?? (detalleValidacion || cuerpo.title || `${mensaje} (HTTP ${respuesta.status})`)
+  } catch {
+    return `${mensaje} (HTTP ${respuesta.status})`
+  }
+}
+
 function adaptarEvento(evento: EventoApi): Cita {
   return {
-    id: evento.idDetalleEvento,
-    idUsuario: evento.idUsuario,
+    id: evento.idEvento,
     fecha: evento.fecha,
     hora: evento.hora,
     horaFin: evento.horaFin,
-    visitante: evento.visitante,
     tipo: evento.tipo,
     estado: evento.estado,
-    qr: evento.estadoQr,
-    qrToken: evento.codigoQr ?? '',
-    historial: evento.historial ?? [],
+    participantes: evento.participantes.map((participante) => ({
+      idDetalleEvento: participante.idDetalleEvento,
+      idUsuario: participante.idUsuario,
+      nombre: participante.nombreUsuario,
+      qr: participante.estadoQr,
+      qrToken: participante.codigoQr ?? '',
+      historial: participante.historial ?? [],
+    })),
   }
 }
 
@@ -112,19 +140,19 @@ export function CitasProvider() {
     void cargarDatos()
   }, [])
 
-  async function agregarCita(nuevaCita: Omit<Cita, 'id' | 'qr' | 'qrToken' | 'historial'>) {
+  async function agregarCita(nuevaCita: Omit<Cita, 'id' | 'participantes'>, idUsuarios: number[]) {
     const respuesta = await fetch(`${apiUrl}/api/eventos`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        idUsuario: nuevaCita.idUsuario,
+        idUsuarios,
         tipo: nuevaCita.tipo,
         fecha: nuevaCita.fecha,
-        horaInicio: nuevaCita.hora,
-        horaFin: nuevaCita.horaFin,
+        horaInicio: horaConSegundos(nuevaCita.hora),
+        horaFin: horaConSegundos(nuevaCita.horaFin),
       }),
     })
-    if (!respuesta.ok) throw new Error('No se pudo guardar el acceso.')
+    if (!respuesta.ok) throw new Error(await leerError(respuesta, 'No se pudo guardar el evento.'))
     const evento = await respuesta.json() as EventoApi
     setCitas((actuales) => [adaptarEvento(evento), ...actuales])
   }
@@ -134,42 +162,65 @@ export function CitasProvider() {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        idUsuario: citaActualizada.idUsuario,
         tipo: citaActualizada.tipo,
         fecha: citaActualizada.fecha,
-        horaInicio: citaActualizada.hora,
-        horaFin: citaActualizada.horaFin,
+        horaInicio: horaConSegundos(citaActualizada.hora),
+        horaFin: horaConSegundos(citaActualizada.horaFin),
         estado: citaActualizada.estado,
       }),
     })
-    if (!respuesta.ok) throw new Error('No se pudo actualizar el acceso.')
+    if (!respuesta.ok) throw new Error(await leerError(respuesta, 'No se pudo actualizar el evento.'))
     setCitas((actuales) => actuales.map((cita) => cita.id === citaActualizada.id
-      ? { ...citaActualizada, qr: 'Pendiente', qrToken: '' }
+      ? citaActualizada
       : cita))
   }
 
   async function eliminarCita(id: number) {
     const respuesta = await fetch(`${apiUrl}/api/eventos/${id}`, { method: 'DELETE' })
-    if (!respuesta.ok) throw new Error('No se pudo eliminar el acceso.')
+    if (!respuesta.ok) throw new Error(await leerError(respuesta, 'No se pudo eliminar el acceso.'))
     setCitas((actuales) => actuales.filter((cita) => cita.id !== id))
   }
 
-  async function generarQr(id: number) {
+  async function agregarParticipante(idEvento: number, idUsuario: number) {
+    const respuesta = await fetch(`${apiUrl}/api/eventos/${idEvento}/participantes`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ idUsuario }),
+    })
+    if (!respuesta.ok) throw new Error(await leerError(respuesta, 'No se pudo agregar al participante.'))
+    const evento = await respuesta.json() as EventoApi
+    setCitas((actuales) => actuales.map((cita) => cita.id === idEvento ? adaptarEvento(evento) : cita))
+  }
+
+  async function eliminarParticipante(idEvento: number, idDetalleEvento: number) {
+    const respuesta = await fetch(`${apiUrl}/api/eventos/${idEvento}/participantes/${idDetalleEvento}`, {
+      method: 'DELETE',
+    })
+    if (!respuesta.ok) throw new Error(await leerError(respuesta, 'No se pudo quitar al participante.'))
+    setCitas((actuales) => actuales.map((cita) => cita.id === idEvento
+      ? { ...cita, participantes: cita.participantes.filter((participante) => participante.idDetalleEvento !== idDetalleEvento) }
+      : cita))
+  }
+
+  async function generarQr(idDetalleEvento: number): Promise<string> {
     const respuesta = await fetch(`${apiUrl}/api/acceso/generar-qr`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ idDetalleEvento: id }),
+      body: JSON.stringify({ idDetalleEvento }),
     })
-  if (!respuesta.ok) throw new Error('No se pudo generar el código QR.')
+  if (!respuesta.ok) throw new Error(await leerError(respuesta, 'No se pudo generar el código QR.'))
   const resultado = await respuesta.json() as { codigoQr: string }
-    setCitas((actuales) => actuales.map((cita) => cita.id === id
-      ? { ...cita, qr: 'Generado', qrToken: resultado.codigoQr }
-      : cita))
+    setCitas((actuales) => actuales.map((cita) => ({
+      ...cita,
+      participantes: cita.participantes.map((participante) => participante.idDetalleEvento === idDetalleEvento
+        ? { ...participante, qr: 'Generado', qrToken: resultado.codigoQr }
+        : participante),
+    })))
   return resultado.codigoQr
   }
 
   return (
-    <CitasContext.Provider value={{ citas, usuarios, cargando, error, agregarCita, actualizarCita, eliminarCita, generarQr }}>
+    <CitasContext.Provider value={{ citas, usuarios, cargando, error, agregarCita, actualizarCita, eliminarCita, agregarParticipante, eliminarParticipante, generarQr }}>
       <Outlet />
     </CitasContext.Provider>
   )

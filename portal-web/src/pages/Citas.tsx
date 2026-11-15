@@ -11,17 +11,22 @@ import Paginacion from "../components/PieTabla"
 import { useState, type FormEvent } from "react"
 //Importacion de la barra de busqueda
 import BarraBusqueda from "../components/componentesPaginas/BarraBusqueda"
+import SelectorCamposBusqueda, { type CampoBusqueda } from "../components/componentesPaginas/SelectorCamposBusqueda"
 
 const coloresEstado: Record<Cita['estado'], string> = {
   Activo: 'bg-emerald-100 text-emerald-700',
   Completado: 'bg-blue-100 text-blue-700',
 }
 
-const coloresQr: Record<Cita['qr'], string> = {
-  Generado: 'bg-emerald-100 text-emerald-700',
-  Pendiente: 'bg-amber-100 text-amber-700',
-  Utilizado: 'bg-slate-100 text-slate-600',
-}
+const camposBusquedaEvento: CampoBusqueda[] = [
+  { clave: 'id', etiqueta: 'ID' },
+  { clave: 'fecha', etiqueta: 'Fecha' },
+  { clave: 'hora', etiqueta: 'Hora de inicio' },
+  { clave: 'horaFin', etiqueta: 'Hora de cierre' },
+  { clave: 'descripcion', etiqueta: 'Descripción' },
+  { clave: 'participantes', etiqueta: 'Participantes' },
+  { clave: 'estado', etiqueta: 'Estado' },
+]
 
 function crearColumnasCitas(
   verCita: (cita: Cita) => void,
@@ -31,19 +36,25 @@ function crearColumnasCitas(
 ) {
   return [
     {
-      header: 'Fecha', width: '12%',
+      header: 'ID', width: '6%', render: (cita: Cita) => <span className="font-mono font-semibold">{cita.id}</span>,
+    },
+    {
+      header: 'Fecha', width: '11%',
       render: (cita: Cita) => {
         const [anio, mes, dia] = cita.fecha.split('-')
         return <span className="font-mono text-slate-500">{dia}/{mes}/{anio}</span>
       },
     },
-    { header: 'Hora', width: '9%', render: (cita: Cita) => <span className="font-mono font-semibold">{cita.hora}</span> },
-    { header: 'Visitante', width: '21%', render: (cita: Cita) => <span className="font-semibold text-slate-800">{cita.visitante}</span> },
-    { header: 'Tipo', width: '17%', render: (cita: Cita) => <span className="font-mono text-slate-500">{cita.tipo}</span> },
-    { header: 'Estado', width: '12%', render: (cita: Cita) => <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${coloresEstado[cita.estado]}`}>{cita.estado}</span> },
-    { header: 'QR', width: '12%', render: (cita: Cita) => <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${coloresQr[cita.qr]}`}>{cita.qr}</span> },
+    { header: 'Hora', width: '8%', render: (cita: Cita) => <span className="font-mono font-semibold">{cita.hora}</span> },
+    { header: 'Descripción', width: '15%', render: (cita: Cita) => <span className="font-mono text-slate-500">{cita.tipo}</span> },
+    { header: 'Participantes', width: '26%', render: (cita: Cita) => <span className="font-semibold text-slate-800">{cita.participantes.map((participante) => participante.nombre).join(', ') || 'Sin participantes'}</span> },
+    { header: 'Estado', width: '11%', render: (cita: Cita) => <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${coloresEstado[cita.estado]}`}>{cita.estado}</span> },
+    { header: 'QR', width: '10%', render: (cita: Cita) => {
+      const generados = cita.participantes.filter((participante) => participante.qr !== 'Pendiente').length
+      return <span className={`text-xs font-semibold ${generados === cita.participantes.length && generados > 0 ? 'text-emerald-700' : 'text-amber-700'}`}>{generados}/{cita.participantes.length} listos</span>
+    }},
     {
-      header: 'Acciones', width: '17%',
+      header: 'Acciones', width: '13%',
       render: (cita: Cita) => (
         <div className="flex items-center gap-1">
           <button type="button" onClick={() => verCita(cita)} aria-label={`Ver cita ${cita.id}`} className="flex h-8 w-8 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100"><Eye size={16} /></button>
@@ -73,8 +84,9 @@ export default function Citas(){
   const [guardando, setGuardando] = useState(false)
   const [errorAccion, setErrorAccion] = useState('')
   const [modalNuevoAbierto, setModalNuevoAbierto] = useState(false)
-  const [nuevoAcceso, setNuevoAcceso] = useState({ idUsuario: '', tipo: '', fecha: '', hora: '', horaFin: '' })
+  const [nuevoAcceso, setNuevoAcceso] = useState({ idUsuarios: [] as string[], tipo: '', fecha: '', hora: '', horaFin: '' })
   const [busqueda, setBusqueda] = useState('')
+  const [camposBusqueda, setCamposBusqueda] = useState<string[]>(() => camposBusquedaEvento.map((campo) => campo.clave))
   const [estado, setEstado] = useState('Todos')
   const [fecha, setFecha] = useState('')
   const [paginaActual, setPaginaActual] = useState(1)
@@ -82,9 +94,20 @@ export default function Citas(){
 
   const citasFiltradas = citas.filter((cita) => {
     const fechaLegible = new Date(`${cita.fecha}T00:00:00`).toLocaleDateString('es-MX')
-    const campos = normalizar(`${cita.id} ${cita.fecha} ${fechaLegible} ${cita.hora} ${cita.horaFin} ${cita.visitante} ${cita.tipo} ${cita.estado} ${cita.qr}`)
+    const valores: Record<string, string> = {
+      id: String(cita.id),
+      fecha: `${cita.fecha} ${fechaLegible}`,
+      hora: cita.hora,
+      horaFin: cita.horaFin,
+      descripcion: cita.tipo,
+      participantes: cita.participantes.map((participante) => participante.nombre).join(' '),
+      estado: cita.estado,
+    }
     const terminos = normalizar(busqueda).split(/\s+/).filter(Boolean)
-    return terminos.every((termino) => campos.includes(termino)) &&
+    const coincideTexto = terminos.every((termino) =>
+      camposBusqueda.some((campo) => normalizar(valores[campo] ?? '').includes(termino))
+    )
+    return coincideTexto &&
       (estado === 'Todos' || cita.estado === estado) &&
       (fecha === '' || cita.fecha === fecha)
   })
@@ -116,9 +139,9 @@ export default function Citas(){
 
   async function registrarAcceso(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault()
-    const usuario = usuarios.find((actual) => actual.id === Number(nuevoAcceso.idUsuario))
-    if (!usuario) {
-      setErrorAccion('Selecciona un usuario existente.')
+    const idUsuarios = [...new Set(nuevoAcceso.idUsuarios.map(Number))]
+    if (idUsuarios.length === 0) {
+      setErrorAccion('Selecciona al menos un usuario.')
       return
     }
 
@@ -126,15 +149,13 @@ export default function Citas(){
     setErrorAccion('')
     try {
       await agregarCita({
-        idUsuario: usuario.id,
-        visitante: usuario.nombre,
         tipo: nuevoAcceso.tipo,
         fecha: nuevoAcceso.fecha,
         hora: nuevoAcceso.hora,
         horaFin: nuevoAcceso.horaFin,
         estado: 'Activo',
-      })
-      setNuevoAcceso({ idUsuario: '', tipo: '', fecha: '', hora: '', horaFin: '' })
+      }, idUsuarios)
+      setNuevoAcceso({ idUsuarios: [], tipo: '', fecha: '', hora: '', horaFin: '' })
       setModalNuevoAbierto(false)
     } catch (error) {
       setErrorAccion(error instanceof Error ? error.message : 'No se pudo guardar el acceso.')
@@ -143,14 +164,22 @@ export default function Citas(){
     }
   }
 
-  async function abrirQr(cita: Cita) {
+  function abrirQr(cita: Cita) {
     setCitaQr(cita)
     setErrorAccion('')
-    if (cita.qr === 'Generado' && cita.qrToken) return
+  }
+
+  async function generarQrParticipante(cita: Cita, idDetalleEvento: number) {
     setGuardando(true)
+    setErrorAccion('')
     try {
-      const codigoQr = await generarQr(cita.id)
-      setCitaQr({ ...cita, qr: 'Generado', qrToken: codigoQr })
+      const codigoQr = await generarQr(idDetalleEvento)
+      setCitaQr((actual) => actual?.id === cita.id ? {
+        ...actual,
+        participantes: actual.participantes.map((participante) => participante.idDetalleEvento === idDetalleEvento
+          ? { ...participante, qr: 'Generado', qrToken: codigoQr }
+          : participante),
+      } : actual)
     } catch (error) {
       setErrorAccion(error instanceof Error ? error.message : 'No se pudo generar el QR.')
     } finally {
@@ -184,7 +213,7 @@ export default function Citas(){
         Nuevo acceso
       </button>
     </section>
-    {(errorCarga || errorAccion) && <p role="alert" className="mb-4 rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{errorAccion || errorCarga}</p>}
+    {errorCarga && <p role="alert" className="mb-4 rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{errorCarga}</p>}
     {cargando && <p role="status" className="py-8 text-center text-sm text-slate-500">Cargando accesos...</p>}
     <BarraBusqueda
       valor={busqueda}
@@ -194,6 +223,14 @@ export default function Citas(){
       }}
       placeholder="Buscar cita..."
     >
+      <SelectorCamposBusqueda
+        campos={camposBusquedaEvento}
+        seleccionados={camposBusqueda}
+        alCambiar={(campos) => {
+          setCamposBusqueda(campos)
+          setPaginaActual(1)
+        }}
+      />
       {/*Calendario para buscar por fecha*/}
       <input
         type="date"
@@ -253,17 +290,23 @@ export default function Citas(){
         </h2>
 
       <form onSubmit={registrarAcceso} className="mt-5 space-y-4">
+        {errorAccion && <p role="alert" className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{errorAccion}</p>}
         <label className="block text-sm text-slate-600">
           Visitante / Empleado
           <select
+            multiple
             required
-            value={nuevoAcceso.idUsuario}
-            onChange={(evento) => setNuevoAcceso({ ...nuevoAcceso, idUsuario: evento.target.value })}
-            className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3"
+            size={Math.min(Math.max(usuarios.length, 2), 5)}
+            value={nuevoAcceso.idUsuarios}
+            onChange={(evento) => setNuevoAcceso({
+              ...nuevoAcceso,
+              idUsuarios: Array.from(evento.target.selectedOptions, (opcion) => opcion.value),
+            })}
+            className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2"
           >
-            <option value="">Selecciona un usuario</option>
             {usuarios.map((usuario) => <option key={usuario.id} value={usuario.id}>{usuario.nombre}</option>)}
           </select>
+          <span className="mt-1 block text-xs text-slate-500">Seleccionados: {nuevoAcceso.idUsuarios.length}</span>
         </label>
 
         <label className="block text-sm text-slate-600">
@@ -350,25 +393,27 @@ export default function Citas(){
       }}>
         <section role="dialog" aria-modal="true" aria-labelledby="qr-dialog-title" className="w-full max-w-sm rounded-xl bg-white p-5 shadow-xl">
           <div className="mb-5 flex items-center justify-between">
-            <h2 id="qr-dialog-title" className="text-lg font-semibold text-slate-900">Código QR del acceso #{citaQr.id}</h2>
+            <h2 id="qr-dialog-title" className="text-lg font-semibold text-slate-900">Participantes del evento #{citaQr.id}</h2>
             <button type="button" onClick={() => setCitaQr(null)} aria-label="Cerrar QR" className="rounded-md p-2 text-slate-500 hover:bg-slate-100">
               <X size={18} />
             </button>
           </div>
-          {citaQr.qr === 'Generado' ? (
-            <div className="flex flex-col items-center gap-4">
-              <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-                <QRCodeSVG value={citaQr.qrToken} size={220} level="M" includeMargin />
-              </div>
-              <p className="text-center text-sm text-slate-500">
-                QR para <span className="font-medium text-slate-800">{citaQr.visitante}</span>
-              </p>
-            </div>
-          ) : (
-            <div className="rounded-lg bg-amber-50 p-4 text-sm text-amber-800">
-              {guardando ? 'Generando código QR...' : errorAccion || 'No se pudo generar el código QR.'}
-            </div>
-          )}
+          {errorAccion && <p role="alert" className="mb-3 text-sm text-rose-600">{errorAccion}</p>}
+          <div className="max-h-[65vh] space-y-3 overflow-y-auto">
+            {citaQr.participantes.map((participante) => (
+              <article key={participante.idDetalleEvento} className="rounded-lg border border-slate-200 p-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="font-medium text-slate-800">{participante.nombre}</p>
+                    <p className="text-xs text-slate-500">{participante.qr}</p>
+                  </div>
+                  {participante.qr === 'Pendiente' && <button type="button" disabled={guardando} onClick={() => void generarQrParticipante(citaQr, participante.idDetalleEvento)} className="rounded-md bg-amber-500 px-3 py-2 text-sm font-semibold text-slate-950 disabled:opacity-60">{guardando ? 'Generando...' : 'Generar QR'}</button>}
+                </div>
+                {participante.qrToken && <div className="mt-3 flex flex-col items-center gap-2 border-t border-slate-100 pt-3"><QRCodeSVG value={participante.qrToken} size={176} level="M" includeMargin /><p className="break-all text-center font-mono text-xs text-slate-500">{participante.qrToken}</p></div>}
+              </article>
+            ))}
+            {citaQr.participantes.length === 0 && <p className="py-5 text-center text-sm text-slate-500">Este evento no tiene participantes asignados.</p>}
+          </div>
         </section>
       </div>
     )}
@@ -380,7 +425,7 @@ export default function Citas(){
         <section role="alertdialog" aria-modal="true" aria-labelledby="delete-dialog-title" aria-describedby="delete-dialog-description" className="w-full max-w-md rounded-xl bg-white p-5 shadow-xl">
           <h2 id="delete-dialog-title" className="text-lg font-semibold text-slate-900">¿Eliminar este acceso?</h2>
           <p id="delete-dialog-description" className="mt-2 text-sm text-slate-600">
-            Se eliminará la cita de {citaAEliminar.visitante}. Esta acción no se puede deshacer.
+            Se eliminará el evento {citaAEliminar.tipo} y sus {citaAEliminar.participantes.length} asignaciones. Esta acción no se puede deshacer.
           </p>
           {errorAccion && <p role="alert" className="mt-3 text-sm text-rose-600">{errorAccion}</p>}
           <div className="mt-6 flex justify-end gap-2">

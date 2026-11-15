@@ -1,8 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, Pencil, QrCode } from 'lucide-react'
+import { ArrowLeft, Pencil } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
-import DataTable from '../components/TablaBase'
 import { useCitas } from '../contexts/CitasContext'
 import type { Cita } from '../contexts/CitasContext'
 
@@ -14,12 +13,13 @@ function fechaVisible(fecha: string) {
 export default function DetalleCita() {
 	const { id } = useParams()
 	const [searchParams, setSearchParams] = useSearchParams()
-	const { citas, usuarios, actualizarCita, generarQr } = useCitas()
+	const { citas, usuarios, actualizarCita, agregarParticipante, eliminarParticipante, generarQr } = useCitas()
 	const cita = citas.find((acceso) => acceso.id === Number(id))
 	const editando = searchParams.get('editar') === '1'
 	const [borrador, setBorrador] = useState<Cita | null>(cita ?? null)
 	const [guardando, setGuardando] = useState(false)
 	const [error, setError] = useState('')
+	const [usuariosSeleccionados, setUsuariosSeleccionados] = useState<number[]>([])
 
 	useEffect(() => {
 		if (cita) setBorrador({ ...cita })
@@ -40,14 +40,42 @@ export default function DetalleCita() {
 		}
 	}
 
-	async function regenerarQr() {
+	async function regenerarQr(idDetalleEvento: number) {
+		setGuardando(true)
+		setError('')
+		try {
+			await generarQr(idDetalleEvento)
+		} catch (errorQr) {
+			setError(errorQr instanceof Error ? errorQr.message : 'No se pudo generar el QR.')
+		} finally {
+			setGuardando(false)
+		}
+	}
+
+	async function agregarUsuariosAlEvento() {
+		if (!cita || usuariosSeleccionados.length === 0) return
+		setGuardando(true)
+		setError('')
+		try {
+			for (const idUsuario of usuariosSeleccionados) {
+				await agregarParticipante(cita.id, idUsuario)
+			}
+			setUsuariosSeleccionados([])
+		} catch (errorAgregar) {
+			setError(errorAgregar instanceof Error ? errorAgregar.message : 'No se pudieron agregar los participantes.')
+		} finally {
+			setGuardando(false)
+		}
+	}
+
+	async function quitarParticipante(idDetalleEvento: number) {
 		if (!cita) return
 		setGuardando(true)
 		setError('')
 		try {
-			await generarQr(cita.id)
-		} catch (errorQr) {
-			setError(errorQr instanceof Error ? errorQr.message : 'No se pudo generar el QR.')
+			await eliminarParticipante(cita.id, idDetalleEvento)
+		} catch (errorEliminar) {
+			setError(errorEliminar instanceof Error ? errorEliminar.message : 'No se pudo quitar el participante.')
 		} finally {
 			setGuardando(false)
 		}
@@ -65,19 +93,13 @@ export default function DetalleCita() {
 	}
 
 	const campos = [
-		{ etiqueta: 'Visitante / Empleado', valor: cita.visitante },
 		{ etiqueta: 'Tipo de acceso', valor: cita.tipo },
 		{ etiqueta: 'Fecha', valor: fechaVisible(cita.fecha) },
 		{ etiqueta: 'Horario', valor: `${cita.hora} - ${cita.horaFin}` },
 		{ etiqueta: 'Estado', valor: cita.estado },
 	]
 
-	const columnasHistorial = [
-		{ header: 'Fecha', width: '22%', render: (registro: Cita['historial'][number]) => registro.fecha },
-		{ header: 'Hora', width: '18%', render: (registro: Cita['historial'][number]) => registro.hora },
-		{ header: 'Resultado', width: '25%', render: (registro: Cita['historial'][number]) => registro.resultado },
-	]
-
+	const usuariosDisponibles = usuarios.filter((usuario) => !cita.participantes.some((participante) => participante.idUsuario === usuario.id))
 	const inputClass = 'mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-100'
 
 	return (
@@ -90,7 +112,7 @@ export default function DetalleCita() {
 
 			<section className="mb-5 flex flex-wrap items-center justify-between gap-4">
 				<div className="flex flex-wrap items-center gap-3">
-					<h2 className="text-xl font-semibold text-slate-900">Acceso #{cita.id}</h2>
+					<h2 className="text-xl font-semibold text-slate-900">Evento #{cita.id}</h2>
 					<span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${cita.estado === 'Activo' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}`}>
 						{cita.estado}
 					</span>
@@ -101,18 +123,8 @@ export default function DetalleCita() {
 						onClick={() => setSearchParams(editando ? {} : { editar: '1' })}
 						className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 hover:bg-slate-50"
 					>
-						<Pencil size={16} /> {editando ? 'Cancelar edición' : 'Editar acceso'}
+						<Pencil size={16} /> {editando ? 'Cancelar edición' : 'Editar evento'}
 					</button>
-					{!editando && (
-						<button
-							type="button"
-							disabled={guardando}
-							onClick={() => void regenerarQr()}
-							className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-3 py-2 text-sm font-semibold text-slate-950 hover:bg-amber-400 disabled:cursor-wait disabled:opacity-60"
-						>
-							<QrCode size={16} /> Generar nuevo QR
-						</button>
-					)}
 				</div>
 			</section>
 
@@ -123,14 +135,6 @@ export default function DetalleCita() {
 						<h3 className="font-semibold text-slate-800">Editar información del acceso</h3>
 					</div>
 					<div className="grid gap-4 sm:grid-cols-2">
-						<label className="text-sm text-slate-600">Visitante / Empleado
-							<select required value={borrador.idUsuario} onChange={(evento) => {
-								const usuario = usuarios.find((actual) => actual.id === Number(evento.target.value))
-								if (usuario) setBorrador({ ...borrador, idUsuario: usuario.id, visitante: usuario.nombre })
-							}} className={inputClass}>
-								{usuarios.map((usuario) => <option key={usuario.id} value={usuario.id}>{usuario.nombre}</option>)}
-							</select>
-						</label>
 						<label className="text-sm text-slate-600">Tipo de acceso
 							<input required value={borrador.tipo} onChange={(evento) => setBorrador({ ...borrador, tipo: evento.target.value })} className={inputClass} />
 						</label>
@@ -161,7 +165,7 @@ export default function DetalleCita() {
 				<>
 					<section className="grid gap-4 xl:grid-cols-2">
 						<article className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-							<h3 className="mb-4 border-b border-slate-100 pb-3 font-semibold text-slate-800">Información del acceso</h3>
+							<h3 className="mb-4 border-b border-slate-100 pb-3 font-semibold text-slate-800">Información del evento</h3>
 							<dl className="space-y-4">
 								{campos.map((campo) => (
 									<div key={campo.etiqueta} className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1 text-sm">
@@ -172,38 +176,41 @@ export default function DetalleCita() {
 							</dl>
 						</article>
 
-						<article className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-							<h3 className="mb-4 font-semibold text-slate-800">Código de acceso (QR)</h3>
-							{cita.qr === 'Generado' ? (
-								<div className="flex flex-col items-center">
-									<div className="rounded-xl border border-slate-200 p-3 shadow-sm">
-										<QRCodeSVG value={cita.qrToken} size={220} level="M" includeMargin />
-									</div>
-									<p className="mt-3 text-sm text-slate-500">Estado: <span className="font-semibold text-emerald-600">VIGENTE</span></p>
-									<p className="mt-1 text-sm text-slate-500">Acceso de un solo uso</p>
-								</div>
-							) : (
-								<div className="flex min-h-64 flex-col items-center justify-center gap-3 rounded-lg bg-slate-50 p-5 text-center">
-									<QrCode size={36} className="text-slate-400" />
-									<p className="text-sm text-slate-600">Este acceso todavía no tiene un QR generado.</p>
-									<button type="button" disabled={guardando} onClick={() => void regenerarQr()} className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-amber-400 disabled:cursor-wait disabled:opacity-60">{guardando ? 'Generando...' : 'Generar QR'}</button>
-								</div>
-							)}
-							<div className="mt-5 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-								<strong className="block">Importante</strong>
-								Este QR es de un solo uso. Después de utilizarse quedará inválido automáticamente.
-							</div>
-							{error && <p role="alert" className="mt-3 text-sm text-rose-600">{error}</p>}
-						</article>
 					</section>
 
 					<section className="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-						<h3 className="border-b border-slate-100 px-5 py-4 font-semibold text-slate-800">Historial de acceso para este registro</h3>
-						{cita.historial.length > 0 ? (
-							<DataTable columns={columnasHistorial} rows={cita.historial} getRowKey={(registro) => String(registro.id)} />
-						) : (
-							<p className="px-5 py-8 text-center text-sm text-slate-500">Aún no hay registros de acceso para este código.</p>
-						)}
+						<div className="border-b border-slate-100 px-5 py-4">
+							<h3 className="font-semibold text-slate-800">Participantes ({cita.participantes.length})</h3>
+							<p className="mt-1 text-sm text-slate-500">Cada participante tiene un QR individual.</p>
+						</div>
+						<div className="grid gap-4 p-5">
+							{cita.participantes.map((participante) => (
+								<article key={participante.idDetalleEvento} className="rounded-lg border border-slate-200 p-4">
+									<div className="flex flex-wrap items-start justify-between gap-3">
+										<div>
+											<p className="font-medium text-slate-800">{participante.nombre}</p>
+											<p className="mt-1 text-xs text-slate-500">QR: {participante.qr}</p>
+										</div>
+										<div className="flex gap-2">
+											{participante.qr === 'Pendiente' && <button type="button" disabled={guardando} onClick={() => void regenerarQr(participante.idDetalleEvento)} className="rounded-md bg-amber-500 px-3 py-2 text-sm font-semibold text-slate-950 disabled:opacity-60">{guardando ? 'Generando...' : 'Generar QR'}</button>}
+											<button type="button" disabled={guardando} onClick={() => void quitarParticipante(participante.idDetalleEvento)} className="rounded-md border border-rose-200 px-3 py-2 text-sm text-rose-700 disabled:opacity-60">Quitar</button>
+										</div>
+									</div>
+									{participante.qrToken && <div className="mt-3 flex flex-wrap items-center gap-4 border-t border-slate-100 pt-3"><QRCodeSVG value={participante.qrToken} size={140} level="M" includeMargin /><p className="break-all font-mono text-xs text-slate-500">{participante.qrToken}</p></div>}
+									{participante.historial.length > 0 && <ul className="mt-3 space-y-1 border-t border-slate-100 pt-3 text-sm text-slate-600">{participante.historial.map((registro) => <li key={registro.id}>Acceso: {registro.fecha} {registro.hora} · {registro.resultado}</li>)}</ul>}
+								</article>
+							))}
+							<label className="block text-sm text-slate-600">
+								Agregar participantes
+								<select multiple size={Math.min(Math.max(usuariosDisponibles.length, 2), 5)} value={usuariosSeleccionados.map(String)} onChange={(evento) => setUsuariosSeleccionados(Array.from(evento.target.selectedOptions, (opcion) => Number(opcion.value)))} className="mt-2 w-full rounded-lg border border-slate-200 bg-white p-2">
+									{usuariosDisponibles.map((usuario) => <option key={usuario.id} value={usuario.id}>{usuario.nombre}</option>)}
+								</select>
+							</label>
+							{error && <p role="alert" className="text-sm text-rose-600">{error}</p>}
+							<div className="flex justify-end">
+								<button type="button" disabled={guardando || usuariosSeleccionados.length === 0} onClick={() => void agregarUsuariosAlEvento()} className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-50">{guardando ? 'Guardando...' : 'Agregar seleccionados'}</button>
+							</div>
+						</div>
 					</section>
 				</>
 			)}

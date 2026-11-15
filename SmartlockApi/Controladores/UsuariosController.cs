@@ -31,7 +31,7 @@ public sealed class UsuariosController(IUsuariosService usuariosService) : Contr
         return usuario is null ? NotFound() : Ok(usuario);
     }
 
-    /// <summary>Crea un usuario activo y almacena su contraseña como hash.</summary>
+    /// <summary>Crea un usuario activo y almacena su contraseña y PIN como hashes.</summary>
     [HttpPost]
     [ProducesResponseType<UsuarioResponse>(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
@@ -57,7 +57,7 @@ public sealed class UsuariosController(IUsuariosService usuariosService) : Contr
         }
     }
 
-    /// <summary>Actualiza nombre, correo, rol y estado de un usuario.</summary>
+    /// <summary>Actualiza los datos personales, rol y estado de un usuario.</summary>
     [HttpPut("{idUsuario:int}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

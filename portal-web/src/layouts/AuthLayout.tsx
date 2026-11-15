@@ -2,12 +2,6 @@ import { LockKeyhole } from "lucide-react";
 //Importacion para las rutas
 import { Outlet } from "react-router-dom";
 
-const estadisticas = [
-    {valor: '142', etiqueta: 'Empleados'},
-    {valor: '67', etiqueta: 'Accesos hoy'},
-    {valor: '3', etiqueta: 'Incidentes'},
-]
-
 export default function AuthLayout(){
     return (
         <div className="grid min-h-dvh grid-cols-1 lg:grid-cols-2">
@@ -53,7 +47,7 @@ export default function AuthLayout(){
 
                 {/*Contenedor de tarjetas de estadisticas*/}
                 {/* Las estadísticas siguen en una fila y amplían separación y padding desde sm. */}
-                <div className="relative grid grid-cols-3 gap-2 sm:gap-4">
+                {/*<div className="relative grid grid-cols-3 gap-2 sm:gap-4">
                     {estadisticas.map((dato) => (
 
                         <article
@@ -69,7 +63,7 @@ export default function AuthLayout(){
                         </span>
                         </article>
           ))}
-        </div>
+        </div>*/}
       </section>
       {/*Contenedor para aviso legal*/}
     {/* El formulario usa padding compacto en móvil y recupera espacio desde sm. */}

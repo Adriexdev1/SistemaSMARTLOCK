@@ -14,10 +14,13 @@ builder.Services.AddScoped<UsuariosRepositorio>();
 builder.Services.AddScoped<IUsuariosService, UsuariosService>();
 builder.Services.AddScoped<IncidentesRepositorio>();
 builder.Services.AddScoped<IIncidentesService, IncidentesService>();
-builder.Services.AddScoped<EventosRepositorio>();
+builder.Services.AddScoped<EventosRepositorioMulti>();
 builder.Services.AddScoped<IEventosService, EventosService>();
+builder.Services.AddHostedService<EventosExpiracionWorker>();
 builder.Services.AddScoped<HistorialRepositorio>();
 builder.Services.AddScoped<IHistorialService, HistorialService>();
+builder.Services.AddScoped<RolesRepositorio>();
+builder.Services.AddScoped<IRolesService, RolesService>();
 //el portal web, el Arduino/ESP8266 y el chatbot de WhatsApp
 builder.Services.AddCors(options =>
 {

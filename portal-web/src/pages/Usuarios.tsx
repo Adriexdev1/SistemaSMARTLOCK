@@ -2,6 +2,7 @@
 import { useEffect, useState, type FormEvent } from "react"
 //Importacion de la barra de busqueda
 import BarraBusqueda from "../components/componentesPaginas/BarraBusqueda"
+import SelectorCamposBusqueda, { type CampoBusqueda } from "../components/componentesPaginas/SelectorCamposBusqueda"
 //Importacion de tabla base
 import DataTable  from "../components/TablaBase"
 import { Eye, Pencil, Plus, Trash2 } from 'lucide-react'
@@ -14,9 +15,17 @@ type Usuario = {
     iniciales: string
     nombre: string
     correo: string
+    telefono: string | null
+    fechaNacimiento: string
+    tienePinConfigurado: boolean
     idRol: number | null
     rol: string
     estado: 'Activo' | 'Inactivo'| 'Suspendido'
+}
+
+type UsuarioBorrador = Usuario & {
+  pin: string
+  quitarPin: boolean
 }
 
 type Rol = { id: number; nombre: string }
@@ -24,6 +33,9 @@ type UsuarioApi = {
   idUsuario: number
   nombreUsuario: string
   correoUsuario: string
+  telefonoUsuario: string | null
+  fechaNacimiento: string | null
+  tienePinConfigurado: boolean
   idRol: number | null
   rol: string | null
   estadoUsuario: number
@@ -31,12 +43,25 @@ type UsuarioApi = {
 
 const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000'
 
+const camposBusquedaUsuario: CampoBusqueda[] = [
+  { clave: 'id', etiqueta: 'ID' },
+  { clave: 'nombre', etiqueta: 'Nombre' },
+  { clave: 'correo', etiqueta: 'Correo' },
+  { clave: 'telefono', etiqueta: 'Teléfono' },
+  { clave: 'rol', etiqueta: 'Rol' },
+  { clave: 'estado', etiqueta: 'Estado' },
+  { clave: 'fechaNacimiento', etiqueta: 'Fecha de nacimiento' },
+]
+
 function adaptarUsuario(usuario: UsuarioApi): Usuario {
   return {
     id: usuario.idUsuario,
     iniciales: obtenerIniciales(usuario.nombreUsuario),
     nombre: usuario.nombreUsuario,
     correo: usuario.correoUsuario,
+    telefono: usuario.telefonoUsuario,
+    fechaNacimiento: usuario.fechaNacimiento?.slice(0, 10) ?? '',
+    tienePinConfigurado: usuario.tienePinConfigurado,
     idRol: usuario.idRol,
     rol: usuario.rol ?? 'Sin rol asignado',
     estado: usuario.estadoUsuario === 1
@@ -184,16 +209,20 @@ export default function Usuarios(){
     const[nuevoUsuario, setNuevoUsuario] = useState({
       nombre: '',
       correo: '',
+      telefono: '',
+      fechaNacimiento: '',
+      pin: '',
       idRol: '',
       contrasena: '',
     })
     const [usuarioSeleccionado, setUsuarioSeleccionado] = useState<Usuario | null>(null)
     const [modoUsuario, setModoUsuario] = useState<'ver' | 'editar' | null>(null)
     const [usuarioAEliminar, setUsuarioAEliminar] = useState<Usuario | null>(null)
-    const [borradorUsuario, setBorradorUsuario] = useState<Usuario | null>(null)
+    const [borradorUsuario, setBorradorUsuario] = useState<UsuarioBorrador | null>(null)
 
     //Constante para realizar busquedas en la interfaz
     const [busqueda, setBusqueda] = useState('')
+    const [camposBusqueda, setCamposBusqueda] = useState<string[]>(() => camposBusquedaUsuario.map((campo) => campo.clave))
     const [estado, setEstado] = useState('Todos') 
 
     //Constantes para definir los usuarios por pagina 
@@ -238,12 +267,19 @@ export default function Usuarios(){
     }, [])
     
     const usuariosFiltrados = usuarios.filter((usuario) => {
-        const campos = normalizar(
-            `${usuario.nombre} ${usuario.correo} ${usuario.rol} ${usuario.iniciales}`
-        )
-    
         const terminos = normalizar(busqueda).split(/\s+/).filter(Boolean)
-        const coincideTexto = terminos.every((termino) => campos.includes(termino))
+        const valores: Record<string, string> = {
+          id: String(usuario.id),
+          nombre: `${usuario.nombre} ${usuario.iniciales}`,
+          correo: usuario.correo,
+          telefono: usuario.telefono ?? '',
+          rol: usuario.rol,
+          estado: usuario.estado,
+          fechaNacimiento: usuario.fechaNacimiento,
+        }
+        const coincideTexto = terminos.every((termino) =>
+          camposBusqueda.some((campo) => normalizar(valores[campo] ?? '').includes(termino))
+        )
         const coincideEstado =
         estado === 'Todos' || usuario.estado === estado
   return coincideTexto && coincideEstado
@@ -276,6 +312,9 @@ export default function Usuarios(){
           body: JSON.stringify({
             nombreUsuario: nuevoUsuario.nombre.trim(),
             correoUsuario: nuevoUsuario.correo.trim(),
+            telefonoUsuario: nuevoUsuario.telefono.trim() || null,
+            fechaNacimiento: nuevoUsuario.fechaNacimiento,
+            pin: nuevoUsuario.pin.trim() || null,
             contrasena: nuevoUsuario.contrasena,
             idRol: nuevoUsuario.idRol ? Number(nuevoUsuario.idRol) : null,
           }),
@@ -292,7 +331,15 @@ export default function Usuarios(){
         setEstado('Todos')
         setPaginaActual(1)
         setModalAbierto(false)
-        setNuevoUsuario({ nombre: '', correo: '', idRol: String(roles[0]?.id ?? ''), contrasena: '' })
+        setNuevoUsuario({
+          nombre: '',
+          correo: '',
+          telefono: '',
+          fechaNacimiento: '',
+          pin: '',
+          idRol: String(roles[0]?.id ?? ''),
+          contrasena: '',
+        })
       } catch {
         setErrorApi('No se pudo conectar con la API.')
       } finally {
@@ -309,7 +356,7 @@ export default function Usuarios(){
     //Funcion para cargar los datos actuales en el formulario de edicion
     function iniciarEdicionUsuario(usuario: Usuario) {
       setUsuarioSeleccionado(usuario)
-      setBorradorUsuario({ ...usuario })
+      setBorradorUsuario({ ...usuario, pin: '', quitarPin: false })
       setModoUsuario('editar')
     }
 
@@ -328,6 +375,10 @@ export default function Usuarios(){
           body: JSON.stringify({
             nombreUsuario: borradorUsuario.nombre.trim(),
             correoUsuario: borradorUsuario.correo.trim(),
+            telefonoUsuario: borradorUsuario.telefono?.trim() || null,
+            fechaNacimiento: borradorUsuario.fechaNacimiento,
+            pin: borradorUsuario.pin.trim() || null,
+            quitarPin: borradorUsuario.quitarPin,
             idRol: borradorUsuario.idRol,
             estadoUsuario: estadoAApi(borradorUsuario.estado),
           }),
@@ -342,6 +393,12 @@ export default function Usuarios(){
           ...borradorUsuario,
           nombre: borradorUsuario.nombre.trim(),
           correo: borradorUsuario.correo.trim(),
+          telefono: borradorUsuario.telefono?.trim() || null,
+          tienePinConfigurado: borradorUsuario.pin.trim()
+            ? true
+            : borradorUsuario.quitarPin
+              ? false
+              : borradorUsuario.tienePinConfigurado,
           iniciales: obtenerIniciales(borradorUsuario.nombre),
           rol: roles.find((rol) => rol.id === borradorUsuario.idRol)?.nombre ?? 'Sin rol asignado',
         }
@@ -405,6 +462,15 @@ export default function Usuarios(){
         type="button"
         onClick={() => {
           setErrorApi('')
+          setNuevoUsuario({
+            nombre: '',
+            correo: '',
+            telefono: '',
+            fechaNacimiento: '',
+            pin: '',
+            idRol: String(roles[0]?.id ?? ''),
+            contrasena: '',
+          })
           setModalAbierto(true)
         }}
         disabled={cargando}
@@ -428,6 +494,14 @@ export default function Usuarios(){
         placeholder="Buscar usuario...">
             
             {/*Filtros a aplicar en busquedas*/}
+            <SelectorCamposBusqueda
+              campos={camposBusquedaUsuario}
+              seleccionados={camposBusqueda}
+              alCambiar={(campos) => {
+                setCamposBusqueda(campos)
+                setPaginaActual(1)
+              }}
+            />
             <select value={estado}
             onChange={(evento) => {setEstado(evento.target.value) 
                 setPaginaActual(1)}}
@@ -474,6 +548,49 @@ export default function Usuarios(){
             value={nuevoUsuario.correo}
             onChange={(evento) =>
               setNuevoUsuario({ ...nuevoUsuario, correo: evento.target.value })
+            }
+            className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3"
+          />
+        </label>
+
+        <label className="block text-sm text-slate-600">
+          Teléfono <span className="text-slate-400">(opcional)</span>
+          <input
+            type="tel"
+            maxLength={25}
+            value={nuevoUsuario.telefono}
+            onChange={(evento) =>
+              setNuevoUsuario({ ...nuevoUsuario, telefono: evento.target.value })
+            }
+            className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3"
+          />
+        </label>
+
+        <label className="block text-sm text-slate-600">
+          Fecha de nacimiento
+          <input
+            required
+            type="date"
+            value={nuevoUsuario.fechaNacimiento}
+            onChange={(evento) =>
+              setNuevoUsuario({ ...nuevoUsuario, fechaNacimiento: evento.target.value })
+            }
+            className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3"
+          />
+        </label>
+
+        <label className="block text-sm text-slate-600">
+          PIN de acceso <span className="text-slate-400">(opcional, 4 a 8 dígitos)</span>
+          <input
+            type="password"
+            inputMode="numeric"
+            autoComplete="new-password"
+            maxLength={8}
+            pattern="[0-9]{4,8}"
+            title="El PIN debe tener entre 4 y 8 dígitos."
+            value={nuevoUsuario.pin}
+            onChange={(evento) =>
+              setNuevoUsuario({ ...nuevoUsuario, pin: evento.target.value })
             }
             className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3"
           />
@@ -581,6 +698,10 @@ export default function Usuarios(){
 
               {modoUsuario === 'ver' ? (
                 <dl className="space-y-4 text-sm">
+                  <div>
+                    <dt className="text-slate-500">ID</dt>
+                    <dd className="mt-1 font-mono font-medium text-slate-800">{usuarioSeleccionado.id}</dd>
+                  </div>
                   <div className="flex items-center gap-3">
                     <span className="flex h-11 w-11 items-center justify-center rounded-full bg-amber-500 font-bold text-slate-950">
                       {usuarioSeleccionado.iniciales}
@@ -593,6 +714,20 @@ export default function Usuarios(){
                   <div>
                     <dt className="text-slate-500">Correo electrónico</dt>
                     <dd className="mt-1 break-all font-medium text-slate-800">{usuarioSeleccionado.correo}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-slate-500">Teléfono</dt>
+                    <dd className="mt-1 font-medium text-slate-800">{usuarioSeleccionado.telefono || 'Sin teléfono'}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-slate-500">Fecha de nacimiento</dt>
+                    <dd className="mt-1 font-medium text-slate-800">{usuarioSeleccionado.fechaNacimiento || 'Sin fecha registrada'}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-slate-500">PIN de acceso</dt>
+                    <dd className="mt-1 font-medium text-slate-800">
+                      {usuarioSeleccionado.tienePinConfigurado ? 'Configurado' : 'Sin PIN'}
+                    </dd>
                   </div>
                   <div>
                     <dt className="text-slate-500">Rol</dt>
@@ -623,6 +758,51 @@ export default function Usuarios(){
                       onChange={(evento) => setBorradorUsuario({ ...borradorUsuario, correo: evento.target.value })}
                       className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3"
                     />
+                  </label>
+                  <label className="block text-sm text-slate-600">
+                    Teléfono <span className="text-slate-400">(opcional)</span>
+                    <input
+                      type="tel"
+                      maxLength={25}
+                      value={borradorUsuario.telefono ?? ''}
+                      onChange={(evento) => setBorradorUsuario({ ...borradorUsuario, telefono: evento.target.value })}
+                      className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3"
+                    />
+                  </label>
+                  <label className="block text-sm text-slate-600">
+                    Fecha de nacimiento
+                    <input
+                      required
+                      type="date"
+                      value={borradorUsuario.fechaNacimiento}
+                      onChange={(evento) => setBorradorUsuario({ ...borradorUsuario, fechaNacimiento: evento.target.value })}
+                      className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3"
+                    />
+                  </label>
+                  <label className="block text-sm text-slate-600">
+                    Nuevo PIN <span className="text-slate-400">(opcional, 4 a 8 dígitos)</span>
+                    <input
+                      type="password"
+                      inputMode="numeric"
+                      autoComplete="new-password"
+                      maxLength={8}
+                      pattern="[0-9]{4,8}"
+                      title="El PIN debe tener entre 4 y 8 dígitos."
+                      value={borradorUsuario.pin}
+                      disabled={borradorUsuario.quitarPin}
+                      onChange={(evento) => setBorradorUsuario({ ...borradorUsuario, pin: evento.target.value })}
+                      className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 disabled:bg-slate-100"
+                    />
+                  </label>
+                  <label className="flex items-center gap-2 text-sm text-slate-600">
+                    <input
+                      type="checkbox"
+                      checked={borradorUsuario.quitarPin}
+                      disabled={Boolean(borradorUsuario.pin)}
+                      onChange={(evento) => setBorradorUsuario({ ...borradorUsuario, quitarPin: evento.target.checked })}
+                      className="h-4 w-4 rounded border-slate-300"
+                    />
+                    Quitar PIN existente
                   </label>
                   <label className="block text-sm text-slate-600">
                     Rol
