@@ -1,0 +1,56 @@
+2026/11/17-20:32:41.242 3a20 Reusing MANIFEST C:\Users\Lenovo\Documents\GitHub\SistemaSMARTLOCK\whatsapp-bot\.wwebjs_auth\session\Default\IndexedDB\https_web.whatsapp.com_0.indexeddb.leveldb/MANIFEST-000001
+2026/11/17-20:32:41.244 3a20 Recovering log #1018
+2026/11/17-20:32:41.260 3a20 Reusing old log C:\Users\Lenovo\Documents\GitHub\SistemaSMARTLOCK\whatsapp-bot\.wwebjs_auth\session\Default\IndexedDB\https_web.whatsapp.com_0.indexeddb.leveldb/001018.log 
+2026/11/17-20:39:12.498 1910 Level-0 table #1035: started
+2026/11/17-20:39:12.534 1910 Level-0 table #1035: 1222658 bytes OK
+2026/11/17-20:39:12.538 1910 Delete type=0 #1018
+2026/11/17-20:39:25.730 1910 Compacting 1@0 + 1@1 files
+2026/11/17-20:39:25.782 1910 Generated table #1036@0: 20851 keys, 378950 bytes
+2026/11/17-20:39:25.794 1910 Generated table #1037@0: 2532 keys, 158396 bytes
+2026/11/17-20:39:25.794 1910 Compacted 1@0 + 1@1 files => 537346 bytes
+2026/11/17-20:39:25.796 1910 compacted to: files[ 0 2 28 0 0 0 0 ]
+2026/11/17-20:39:25.797 1910 Delete type=2 #998
+2026/11/17-20:39:25.797 1910 Delete type=2 #1035
+2026/11/17-20:42:42.887 1910 Compacting 1@1 + 9@2 files
+2026/11/17-20:42:42.954 1910 Generated table #1038@1: 11026 keys, 2135777 bytes
+2026/11/17-20:42:43.043 1910 Generated table #1039@1: 53664 keys, 2190192 bytes
+2026/11/17-20:42:43.154 1910 Generated table #1040@1: 104224 keys, 2253506 bytes
+2026/11/17-20:42:43.279 1910 Generated table #1041@1: 102560 keys, 2251149 bytes
+2026/11/17-20:42:43.391 1910 Generated table #1042@1: 102350 keys, 2251198 bytes
+2026/11/17-20:42:43.486 1910 Generated table #1043@1: 87452 keys, 2235888 bytes
+2026/11/17-20:42:43.577 1910 Generated table #1044@1: 74167 keys, 2269427 bytes
+2026/11/17-20:42:43.663 1910 Generated table #1045@1: 50797 keys, 2213527 bytes
+2026/11/17-20:42:43.670 1910 Generated table #1046@1: 273 keys, 66030 bytes
+2026/11/17-20:42:43.670 1910 Compacted 1@1 + 9@2 files => 17866694 bytes
+2026/11/17-20:42:43.671 1910 compacted to: files[ 0 1 28 0 0 0 0 ]
+2026/11/17-20:42:43.672 1910 Delete type=2 #1024
+2026/11/17-20:42:43.672 1910 Delete type=2 #1025
+2026/11/17-20:42:43.672 1910 Delete type=2 #1026
+2026/11/17-20:42:43.672 1910 Delete type=2 #1027
+2026/11/17-20:42:43.673 1910 Delete type=2 #1028
+2026/11/17-20:42:43.673 1910 Delete type=2 #1029
+2026/11/17-20:42:43.673 1910 Delete type=2 #1030
+2026/11/17-20:42:43.673 1910 Delete type=2 #1031
+2026/11/17-20:42:43.673 1910 Delete type=2 #1032
+2026/11/17-20:42:43.673 1910 Delete type=2 #1036
+2026/11/17-20:43:39.582 1910 Compacting 1@1 + 9@2 files
+2026/11/17-20:43:39.631 1910 Generated table #1047@1: 2402 keys, 2155367 bytes
+2026/11/17-20:43:39.676 1910 Generated table #1048@1: 2732 keys, 2149717 bytes
+2026/11/17-20:43:39.708 1910 Generated table #1049@1: 2315 keys, 2148339 bytes
+2026/11/17-20:43:39.774 1910 Generated table #1050@1: 33920 keys, 2253827 bytes
+2026/11/17-20:43:39.864 1910 Generated table #1051@1: 26672 keys, 2273988 bytes
+2026/11/17-20:43:39.922 1910 Generated table #1052@1: 25517 keys, 2244542 bytes
+2026/11/17-20:43:39.972 1910 Generated table #1053@1: 21769 keys, 2240805 bytes
+2026/11/17-20:43:39.980 1910 Generated table #1054@1: 2560 keys, 123547 bytes
+2026/11/17-20:43:39.980 1910 Compacted 1@1 + 9@2 files => 15590132 bytes
+2026/11/17-20:43:39.981 1910 compacted to: files[ 0 0 27 0 0 0 0 ]
+2026/11/17-20:43:39.982 1910 Delete type=2 #982
+2026/11/17-20:43:39.982 1910 Delete type=2 #1002
+2026/11/17-20:43:39.983 1910 Delete type=2 #1003
+2026/11/17-20:43:39.983 1910 Delete type=2 #1004
+2026/11/17-20:43:39.983 1910 Delete type=2 #1005
+2026/11/17-20:43:39.983 1910 Delete type=2 #1006
+2026/11/17-20:43:39.983 1910 Delete type=2 #1009
+2026/11/17-20:43:39.983 1910 Delete type=2 #1022
+2026/11/17-20:43:39.983 1910 Delete type=2 #1023
+2026/11/17-20:43:39.983 1910 Delete type=2 #1037

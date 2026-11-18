@@ -1,0 +1,159 @@
+2026/11/17-20:11:45.451 1ba8 Reusing MANIFEST C:\Users\Lenovo\Documents\GitHub\SistemaSMARTLOCK\whatsapp-bot\.wwebjs_auth\session\Default\IndexedDB\https_web.whatsapp.com_0.indexeddb.leveldb/MANIFEST-000001
+2026/11/17-20:11:45.453 1ba8 Recovering log #946
+2026/11/17-20:11:45.487 1ba8 Reusing old log C:\Users\Lenovo\Documents\GitHub\SistemaSMARTLOCK\whatsapp-bot\.wwebjs_auth\session\Default\IndexedDB\https_web.whatsapp.com_0.indexeddb.leveldb/000946.log 
+2026/11/17-20:11:45.489 1ba8 Delete type=2 #926
+2026/11/17-20:11:45.489 1ba8 Delete type=2 #927
+2026/11/17-20:11:45.489 1ba8 Delete type=2 #928
+2026/11/17-20:11:45.489 1ba8 Delete type=2 #929
+2026/11/17-20:11:45.489 1ba8 Delete type=2 #930
+2026/11/17-20:11:45.489 1ba8 Delete type=2 #931
+2026/11/17-20:11:45.490 1ba8 Delete type=2 #932
+2026/11/17-20:11:45.491 1ba8 Delete type=2 #933
+2026/11/17-20:11:45.491 1ba8 Delete type=2 #948
+2026/11/17-20:11:48.577 42ac Level-0 table #972: started
+2026/11/17-20:11:48.599 42ac Level-0 table #972: 1320313 bytes OK
+2026/11/17-20:11:48.603 42ac Delete type=0 #946
+2026/11/17-20:11:48.637 42ac Compacting 1@0 + 0@1 files
+2026/11/17-20:11:48.653 42ac Generated table #973@0: 17761 keys, 391760 bytes
+2026/11/17-20:11:48.662 42ac Generated table #974@0: 3939 keys, 285027 bytes
+2026/11/17-20:11:48.662 42ac Compacted 1@0 + 0@1 files => 676787 bytes
+2026/11/17-20:11:48.663 42ac compacted to: files[ 0 2 25 0 0 0 0 ]
+2026/11/17-20:11:48.748 42ac Compacting 1@1 + 8@2 files
+2026/11/17-20:11:48.779 42ac Generated table #975@1: 2395 keys, 2154770 bytes
+2026/11/17-20:11:48.814 42ac Generated table #976@1: 2738 keys, 2150211 bytes
+2026/11/17-20:11:48.848 42ac Generated table #977@1: 2330 keys, 2149401 bytes
+2026/11/17-20:11:48.905 42ac Generated table #978@1: 34130 keys, 2254417 bytes
+2026/11/17-20:11:48.968 42ac Generated table #979@1: 26665 keys, 2274384 bytes
+2026/11/17-20:11:49.026 42ac Generated table #980@1: 25385 keys, 2243232 bytes
+2026/11/17-20:11:49.088 42ac Generated table #981@1: 22475 keys, 2239795 bytes
+2026/11/17-20:11:49.096 42ac Generated table #982@1: 1636 keys, 88949 bytes
+2026/11/17-20:11:49.096 42ac Compacted 1@1 + 8@2 files => 15555159 bytes
+2026/11/17-20:11:49.098 42ac compacted to: files[ 0 1 25 0 0 0 0 ]
+2026/11/17-20:11:49.099 42ac Delete type=2 #972
+2026/11/17-20:11:49.141 42ac Compacting 1@1 + 8@2 files
+2026/11/17-20:11:49.175 42ac Generated table #983@1: 11719 keys, 2136475 bytes
+2026/11/17-20:11:49.219 42ac Generated table #984@1: 50067 keys, 2186338 bytes
+2026/11/17-20:11:49.291 42ac Generated table #985@1: 104601 keys, 2254383 bytes
+2026/11/17-20:11:49.355 42ac Generated table #986@1: 102848 keys, 2252609 bytes
+2026/11/17-20:11:49.415 42ac Generated table #987@1: 102436 keys, 2252023 bytes
+2026/11/17-20:11:49.472 42ac Generated table #988@1: 86268 keys, 2234851 bytes
+2026/11/17-20:11:49.523 42ac Generated table #989@1: 73278 keys, 2259783 bytes
+2026/11/17-20:11:49.597 42ac Generated table #990@1: 50101 keys, 2213812 bytes
+2026/11/17-20:11:49.606 42ac Generated table #991@1: 474 keys, 166101 bytes
+2026/11/17-20:11:49.606 42ac Compacted 1@1 + 8@2 files => 17956375 bytes
+2026/11/17-20:11:49.607 42ac compacted to: files[ 0 0 26 0 0 0 0 ]
+2026/11/17-20:17:00.962 42ac Level-0 table #993: started
+2026/11/17-20:17:00.995 42ac Level-0 table #993: 1360911 bytes OK
+2026/11/17-20:17:00.999 42ac Delete type=2 #953
+2026/11/17-20:17:01.000 42ac Delete type=2 #954
+2026/11/17-20:17:01.000 42ac Delete type=2 #955
+2026/11/17-20:17:01.000 42ac Delete type=2 #956
+2026/11/17-20:17:01.000 42ac Delete type=2 #957
+2026/11/17-20:17:01.000 42ac Delete type=2 #958
+2026/11/17-20:17:01.000 42ac Delete type=2 #959
+2026/11/17-20:17:01.000 42ac Delete type=2 #960
+2026/11/17-20:17:01.000 42ac Delete type=2 #961
+2026/11/17-20:17:01.000 42ac Delete type=2 #962
+2026/11/17-20:17:01.000 42ac Delete type=2 #963
+2026/11/17-20:17:01.000 42ac Delete type=2 #964
+2026/11/17-20:17:01.000 42ac Delete type=2 #965
+2026/11/17-20:17:01.001 42ac Delete type=2 #966
+2026/11/17-20:17:01.001 42ac Delete type=2 #967
+2026/11/17-20:17:01.001 42ac Delete type=2 #968
+2026/11/17-20:17:01.001 42ac Delete type=0 #971
+2026/11/17-20:17:01.001 42ac Delete type=2 #973
+2026/11/17-20:17:01.001 42ac Delete type=2 #974
+2026/11/17-20:17:26.407 42ac Level-0 table #995: started
+2026/11/17-20:17:26.434 42ac Level-0 table #995: 1222145 bytes OK
+2026/11/17-20:17:26.437 42ac Delete type=0 #992
+2026/11/17-20:21:45.047 42ac Compacting 2@0 + 0@1 files
+2026/11/17-20:21:45.100 42ac Generated table #996@0: 25946 keys, 356198 bytes
+2026/11/17-20:21:45.120 42ac Generated table #997@0: 3855 keys, 287995 bytes
+2026/11/17-20:21:45.127 42ac Generated table #998@0: 23 keys, 5508 bytes
+2026/11/17-20:21:45.127 42ac Compacted 2@0 + 0@1 files => 649701 bytes
+2026/11/17-20:21:45.129 42ac compacted to: files[ 0 3 26 0 0 0 0 ]
+2026/11/17-20:21:45.130 42ac Delete type=2 #993
+2026/11/17-20:21:45.130 42ac Delete type=2 #995
+2026/11/17-20:24:06.095 42ac Compacting 1@1 + 10@2 files
+2026/11/17-20:24:06.176 42ac Generated table #999@1: 2657 keys, 2155169 bytes
+2026/11/17-20:24:06.218 42ac Generated table #1000@1: 2435 keys, 2155259 bytes
+2026/11/17-20:24:06.278 42ac Generated table #1001@1: 2550 keys, 2142979 bytes
+2026/11/17-20:24:06.315 42ac Generated table #1002@1: 2398 keys, 2153959 bytes
+2026/11/17-20:24:06.353 42ac Generated table #1003@1: 2732 keys, 2149717 bytes
+2026/11/17-20:24:06.413 42ac Generated table #1004@1: 2327 keys, 2150128 bytes
+2026/11/17-20:24:06.506 42ac Generated table #1005@1: 34039 keys, 2253507 bytes
+2026/11/17-20:24:06.595 42ac Generated table #1006@1: 26668 keys, 2273292 bytes
+2026/11/17-20:24:06.682 42ac Generated table #1007@1: 25432 keys, 2244288 bytes
+2026/11/17-20:24:06.754 42ac Generated table #1008@1: 22241 keys, 2239055 bytes
+2026/11/17-20:24:06.762 42ac Generated table #1009@1: 343 keys, 17447 bytes
+2026/11/17-20:24:06.762 42ac Compacted 1@1 + 10@2 files => 21934800 bytes
+2026/11/17-20:24:06.765 42ac compacted to: files[ 0 2 27 0 0 0 0 ]
+2026/11/17-20:24:06.767 42ac Delete type=2 #950
+2026/11/17-20:24:06.767 42ac Delete type=2 #951
+2026/11/17-20:24:06.767 42ac Delete type=2 #952
+2026/11/17-20:24:06.767 42ac Delete type=2 #975
+2026/11/17-20:24:06.767 42ac Delete type=2 #976
+2026/11/17-20:24:06.767 42ac Delete type=2 #977
+2026/11/17-20:24:06.767 42ac Delete type=2 #978
+2026/11/17-20:24:06.767 42ac Delete type=2 #979
+2026/11/17-20:24:06.767 42ac Delete type=2 #980
+2026/11/17-20:24:06.767 42ac Delete type=2 #981
+2026/11/17-20:24:06.767 42ac Delete type=2 #997
+2026/11/17-20:30:02.841 1a0c Compacting 1@1 + 8@2 files
+2026/11/17-20:30:02.976 1a0c Generated table #1010@1: 11042 keys, 2135285 bytes
+2026/11/17-20:30:03.126 1a0c Generated table #1011@1: 54268 keys, 2190558 bytes
+2026/11/17-20:30:03.256 1a0c Generated table #1012@1: 104233 keys, 2254287 bytes
+2026/11/17-20:30:03.368 1a0c Generated table #1013@1: 102539 keys, 2251341 bytes
+2026/11/17-20:30:03.474 1a0c Generated table #1014@1: 102255 keys, 2251150 bytes
+2026/11/17-20:30:03.573 1a0c Generated table #1015@1: 87827 keys, 2236503 bytes
+2026/11/17-20:30:03.652 1a0c Generated table #1016@1: 71251 keys, 2261852 bytes
+2026/11/17-20:30:03.774 1a0c Generated table #1017@1: 49403 keys, 2170081 bytes
+2026/11/17-20:30:03.774 1a0c Compacted 1@1 + 8@2 files => 17751057 bytes
+2026/11/17-20:30:03.775 1a0c compacted to: files[ 0 1 27 0 0 0 0 ]
+2026/11/17-20:30:03.776 1a0c Delete type=2 #983
+2026/11/17-20:30:03.777 1a0c Delete type=2 #984
+2026/11/17-20:30:03.777 1a0c Delete type=2 #985
+2026/11/17-20:30:03.777 1a0c Delete type=2 #986
+2026/11/17-20:30:03.777 1a0c Delete type=2 #987
+2026/11/17-20:30:03.777 1a0c Delete type=2 #988
+2026/11/17-20:30:03.777 1a0c Delete type=2 #989
+2026/11/17-20:30:03.778 1a0c Delete type=2 #990
+2026/11/17-20:30:03.778 1a0c Delete type=2 #996
+2026/11/17-20:30:14.582 42ac Level-0 table #1019: started
+2026/11/17-20:30:14.609 42ac Level-0 table #1019: 1311315 bytes OK
+2026/11/17-20:30:14.613 42ac Delete type=0 #994
+2026/11/17-20:30:17.096 42ac Compacting 1@0 + 0@1 files
+2026/11/17-20:30:17.124 42ac Generated table #1020@0: 9455 keys, 354832 bytes
+2026/11/17-20:30:17.138 42ac Generated table #1021@0: 4603 keys, 336963 bytes
+2026/11/17-20:30:17.138 42ac Compacted 1@0 + 0@1 files => 691795 bytes
+2026/11/17-20:30:17.140 42ac compacted to: files[ 0 3 27 0 0 0 0 ]
+2026/11/17-20:30:17.141 42ac Delete type=2 #1019
+2026/11/17-20:30:49.000 42ac Compacting 1@1 + 2@2 files
+2026/11/17-20:30:49.100 42ac Generated table #1022@1: 25432 keys, 2244300 bytes
+2026/11/17-20:30:49.177 42ac Generated table #1023@1: 22241 keys, 2239055 bytes
+2026/11/17-20:30:49.177 42ac Compacted 1@1 + 2@2 files => 4483355 bytes
+2026/11/17-20:30:49.179 42ac compacted to: files[ 0 2 27 0 0 0 0 ]
+2026/11/17-20:30:49.180 42ac Delete type=2 #1007
+2026/11/17-20:30:49.181 42ac Delete type=2 #1008
+2026/11/17-20:30:49.181 42ac Delete type=2 #1021
+2026/11/17-20:32:02.960 42ac Compacting 1@1 + 8@2 files
+2026/11/17-20:32:03.018 42ac Generated table #1024@1: 12143 keys, 2136762 bytes
+2026/11/17-20:32:03.115 42ac Generated table #1025@1: 40999 keys, 2173940 bytes
+2026/11/17-20:32:03.258 42ac Generated table #1026@1: 105315 keys, 2256266 bytes
+2026/11/17-20:32:03.383 42ac Generated table #1027@1: 103231 keys, 2252158 bytes
+2026/11/17-20:32:03.490 42ac Generated table #1028@1: 102945 keys, 2252687 bytes
+2026/11/17-20:32:03.578 42ac Generated table #1029@1: 85471 keys, 2233572 bytes
+2026/11/17-20:32:03.668 42ac Generated table #1030@1: 82550 keys, 2274314 bytes
+2026/11/17-20:32:03.756 42ac Generated table #1031@1: 49429 keys, 2213208 bytes
+2026/11/17-20:32:03.769 42ac Generated table #1032@1: 3845 keys, 243618 bytes
+2026/11/17-20:32:03.769 42ac Compacted 1@1 + 8@2 files => 18036525 bytes
+2026/11/17-20:32:03.770 42ac compacted to: files[ 0 1 28 0 0 0 0 ]
+2026/11/17-20:32:03.771 42ac Delete type=2 #1010
+2026/11/17-20:32:03.771 42ac Delete type=2 #1011
+2026/11/17-20:32:03.771 42ac Delete type=2 #1012
+2026/11/17-20:32:03.771 42ac Delete type=2 #1013
+2026/11/17-20:32:03.771 42ac Delete type=2 #1014
+2026/11/17-20:32:03.772 42ac Delete type=2 #1015
+2026/11/17-20:32:03.772 42ac Delete type=2 #1016
+2026/11/17-20:32:03.772 42ac Delete type=2 #1017
+2026/11/17-20:32:03.772 42ac Delete type=2 #1020
