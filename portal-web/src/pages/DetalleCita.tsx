@@ -1,11 +1,12 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useState, type FormEvent } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, Pencil } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
-import { useCitas } from '../contexts/CitasContext'
-import type { Cita } from '../contexts/CitasContext'
+import { useCitas, type Cita } from '../contexts/CitasContextState'
+import { crearContenidoQrPuerta } from '../utils/codigoQrPuerta'
 
 function fechaVisible(fecha: string) {
+	if (!fecha) return '—'
 	const [anio, mes, dia] = fecha.split('-')
 	return `${dia} de ${new Date(Number(anio), Number(mes) - 1, Number(dia)).toLocaleDateString('es-MX', { month: 'long' })} de ${anio}`
 }
@@ -16,22 +17,29 @@ export default function DetalleCita() {
 	const { citas, usuarios, actualizarCita, agregarParticipante, eliminarParticipante, generarQr } = useCitas()
 	const cita = citas.find((acceso) => acceso.id === Number(id))
 	const editando = searchParams.get('editar') === '1'
-	const [borrador, setBorrador] = useState<Cita | null>(cita ?? null)
+	const [borrador, setBorrador] = useState<Cita | null>(null)
+	const borradorActual = borrador?.id === cita?.id ? borrador : cita
 	const [guardando, setGuardando] = useState(false)
 	const [error, setError] = useState('')
 	const [usuariosSeleccionados, setUsuariosSeleccionados] = useState<number[]>([])
 
-	useEffect(() => {
-		if (cita) setBorrador({ ...cita })
-	}, [cita, editando])
-
 	async function guardarCambios(evento: FormEvent<HTMLFormElement>) {
 		evento.preventDefault()
-		if (!borrador) return
+		if (!borradorActual) return
+		const inicio = Date.parse(`${borradorActual.fecha}T${borradorActual.hora}:00`)
+		const fin = Date.parse(`${borradorActual.fechaFin}T${borradorActual.horaFin}:00`)
+		if (!Number.isFinite(inicio) || !Number.isFinite(fin)) {
+			setError('Selecciona la fecha y hora de inicio y terminación.')
+			return
+		}
+		if (fin < inicio) {
+			setError('La fecha y hora de terminación no puede ser anterior al inicio.')
+			return
+		}
 		setGuardando(true)
 		setError('')
 		try {
-			await actualizarCita(borrador)
+			await actualizarCita(borradorActual)
 			setSearchParams({}, { replace: true })
 		} catch (errorGuardado) {
 			setError(errorGuardado instanceof Error ? errorGuardado.message : 'No se pudo actualizar el acceso.')
@@ -81,21 +89,23 @@ export default function DetalleCita() {
 		}
 	}
 
-	if (!cita || !borrador) {
+	if (!cita || !borradorActual) {
 		return (
 			<section className="rounded-xl border border-slate-200 bg-white p-6 text-center">
-				<h2 className="font-semibold text-slate-900">No se encontró este acceso</h2>
+				<h2 className="font-semibold text-slate-900">No se encontró este evento</h2>
 				<Link to="/eventos" className="mt-3 inline-block text-sm font-medium text-orange-600 hover:text-orange-700">
-					Volver a citas / accesos
+					Volver a eventos
 				</Link>
 			</section>
 		)
 	}
 
 	const campos = [
-		{ etiqueta: 'Tipo de acceso', valor: cita.tipo },
-		{ etiqueta: 'Fecha', valor: fechaVisible(cita.fecha) },
-		{ etiqueta: 'Horario', valor: `${cita.hora} - ${cita.horaFin}` },
+		{ etiqueta: 'Tipo de evento', valor: cita.tipo },
+		{ etiqueta: 'Fecha de inicio', valor: fechaVisible(cita.fecha) },
+		{ etiqueta: 'Hora de inicio', valor: cita.hora },
+		{ etiqueta: 'Fecha de terminación', valor: fechaVisible(cita.fechaFin) },
+		{ etiqueta: 'Hora de terminación', valor: cita.horaFin },
 		{ etiqueta: 'Estado', valor: cita.estado },
 	]
 
@@ -105,7 +115,7 @@ export default function DetalleCita() {
 	return (
 		<div className="mx-auto w-full max-w-[1600px]">
 			<nav aria-label="Ruta de navegación" className="mb-4 flex flex-wrap items-center gap-2 text-sm text-slate-500">
-				<Link to="/eventos" className="hover:text-orange-600">Citas / Accesos</Link>
+				<Link to="/eventos" className="hover:text-orange-600">Eventos</Link>
 				<span aria-hidden="true">/</span>
 				<span className="text-slate-700">Detalle #{cita.id}</span>
 			</nav>
@@ -113,14 +123,21 @@ export default function DetalleCita() {
 			<section className="mb-5 flex flex-wrap items-center justify-between gap-4">
 				<div className="flex flex-wrap items-center gap-3">
 					<h2 className="text-xl font-semibold text-slate-900">Evento #{cita.id}</h2>
-					<span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${cita.estado === 'Activo' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}`}>
+					<span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${cita.estado === 'Activo' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
 						{cita.estado}
 					</span>
 				</div>
 				<div className="flex flex-wrap gap-2">
 					<button
 						type="button"
-						onClick={() => setSearchParams(editando ? {} : { editar: '1' })}
+						onClick={() => {
+							if (editando) {
+								setSearchParams({})
+							} else {
+								setBorrador({ ...cita })
+								setSearchParams({ editar: '1' })
+							}
+						}}
 						className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 hover:bg-slate-50"
 					>
 						<Pencil size={16} /> {editando ? 'Cancelar edición' : 'Editar evento'}
@@ -132,26 +149,56 @@ export default function DetalleCita() {
 				<form onSubmit={guardarCambios} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
 					<div className="mb-5 flex items-center gap-2 border-b border-slate-100 pb-4">
 						<ArrowLeft size={18} className="text-slate-400" />
-						<h3 className="font-semibold text-slate-800">Editar información del acceso</h3>
+						<h3 className="font-semibold text-slate-800">Editar información del evento</h3>
 					</div>
 					<div className="grid gap-4 sm:grid-cols-2">
-						<label className="text-sm text-slate-600">Tipo de acceso
-							<input required value={borrador.tipo} onChange={(evento) => setBorrador({ ...borrador, tipo: evento.target.value })} className={inputClass} />
+						<label className="text-sm text-slate-600">Tipo de evento
+							<input required value={borradorActual.tipo} onChange={(evento) => setBorrador({ ...borradorActual, tipo: evento.target.value })} className={inputClass} />
 						</label>
-						<label className="text-sm text-slate-600">Fecha
-							<input required type="date" value={borrador.fecha} onChange={(evento) => setBorrador({ ...borrador, fecha: evento.target.value })} className={inputClass} />
+						<label className="text-sm text-slate-600">Fecha de inicio
+							<input
+								required
+								type="date"
+								value={borradorActual.fecha}
+								onChange={(evento) => {
+									const fecha = evento.target.value
+									setBorrador({
+										...borradorActual,
+										fecha,
+										fechaFin: borradorActual.fechaFin < fecha ? fecha : borradorActual.fechaFin,
+									})
+								}}
+								className={inputClass}
+							/>
+						</label>
+						<label className="text-sm text-slate-600">Fecha de terminación
+							<input
+								required
+								type="date"
+								min={borradorActual.fecha}
+								value={borradorActual.fechaFin}
+								onChange={(evento) => setBorrador({ ...borradorActual, fechaFin: evento.target.value })}
+								className={inputClass}
+							/>
 						</label>
 						<div className="grid grid-cols-2 gap-3">
-							<label className="text-sm text-slate-600">Hora inicio
-								<input required type="time" value={borrador.hora} onChange={(evento) => setBorrador({ ...borrador, hora: evento.target.value })} className={inputClass} />
+							<label className="text-sm text-slate-600">Hora de inicio
+								<input required type="time" value={borradorActual.hora} onChange={(evento) => setBorrador({ ...borradorActual, hora: evento.target.value })} className={inputClass} />
 							</label>
-							<label className="text-sm text-slate-600">Hora fin
-								<input required type="time" value={borrador.horaFin} onChange={(evento) => setBorrador({ ...borrador, horaFin: evento.target.value })} className={inputClass} />
+							<label className="text-sm text-slate-600">Hora de terminación
+								<input
+									required
+									type="time"
+									value={borradorActual.horaFin}
+									min={borradorActual.fechaFin === borradorActual.fecha ? borradorActual.hora : undefined}
+									onChange={(evento) => setBorrador({ ...borradorActual, horaFin: evento.target.value })}
+									className={inputClass}
+								/>
 							</label>
 						</div>
 						<label className="text-sm text-slate-600">Estado
-							<select value={borrador.estado} onChange={(evento) => setBorrador({ ...borrador, estado: evento.target.value as Cita['estado'] })} className={inputClass}>
-								<option>Activo</option><option>Completado</option>
+							<select value={borradorActual.estado} onChange={(evento) => setBorrador({ ...borradorActual, estado: evento.target.value as Cita['estado'] })} className={inputClass}>
+								<option>Activo</option><option>Inactivo</option>
 							</select>
 						</label>
 					</div>
@@ -196,7 +243,7 @@ export default function DetalleCita() {
 											<button type="button" disabled={guardando} onClick={() => void quitarParticipante(participante.idDetalleEvento)} className="rounded-md border border-rose-200 px-3 py-2 text-sm text-rose-700 disabled:opacity-60">Quitar</button>
 										</div>
 									</div>
-									{participante.qrToken && <div className="mt-3 flex flex-wrap items-center gap-4 border-t border-slate-100 pt-3"><QRCodeSVG value={participante.qrToken} size={140} level="M" includeMargin /><p className="break-all font-mono text-xs text-slate-500">{participante.qrToken}</p></div>}
+									{participante.qrToken && <div className="mt-3 flex flex-wrap items-center gap-4 border-t border-slate-100 pt-3"><QRCodeSVG value={crearContenidoQrPuerta(participante.idDetalleEvento, participante.qrToken)} size={140} level="M" includeMargin /><p className="break-all font-mono text-xs text-slate-500">{crearContenidoQrPuerta(participante.idDetalleEvento, participante.qrToken)}</p></div>}
 									{participante.historial.length > 0 && <ul className="mt-3 space-y-1 border-t border-slate-100 pt-3 text-sm text-slate-600">{participante.historial.map((registro) => <li key={registro.id}>Acceso: {registro.fecha} {registro.hora} · {registro.resultado}</li>)}</ul>}
 								</article>
 							))}

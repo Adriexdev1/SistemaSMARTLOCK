@@ -8,6 +8,8 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 // Repositorio de acceso a SMARTLOCK_BD
 builder.Services.AddScoped<AccesoRepositorio>();
+builder.Services.AddScoped<AccesoRfidRepositorio>();
+builder.Services.AddSingleton<RfidCardHasher>();
 builder.Services.AddScoped<AuthRepositorio>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<UsuariosRepositorio>();

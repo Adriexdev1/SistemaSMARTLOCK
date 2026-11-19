@@ -19,10 +19,11 @@ public sealed record LoginResponse(
     string CorreoUsuario,
     string? TelefonoUsuario,
     string? Rol,
-    bool TienePinConfigurado);
+    bool TieneTarjetaRfidAsignada,
+    int? PermisoRol);
 
-/// <summary>Datos para configurar o cambiar el PIN personal.</summary>
-public sealed record ConfigurarPinRequest
+/// <summary>Datos para vincular una tarjeta RFID al usuario.</summary>
+public sealed record ConfigurarTarjetaRfidRequest
 {
     [Range(1, int.MaxValue)]
     public required int IdUsuario { get; init; }
@@ -30,12 +31,12 @@ public sealed record ConfigurarPinRequest
     [Required, MaxLength(100)]
     public required string ContrasenaActual { get; init; }
 
-    [Required, RegularExpression(@"^\d{4,8}$")]
-    public required string Pin { get; init; }
+    [Required, MaxLength(50)]
+    public required string Uid { get; init; }
 }
 
-/// <summary>Datos para quitar el PIN personal.</summary>
-public sealed record EliminarPinRequest
+/// <summary>Datos para quitar la tarjeta RFID vinculada.</summary>
+public sealed record EliminarTarjetaRfidRequest
 {
     [Range(1, int.MaxValue)]
     public required int IdUsuario { get; init; }
@@ -44,8 +45,26 @@ public sealed record EliminarPinRequest
     public required string ContrasenaActual { get; init; }
 }
 
-/// <summary>Indica si el usuario tiene un PIN configurado.</summary>
-public sealed record EstadoPinResponse(bool TienePinConfigurado);
+/// <summary>Indica si el usuario tiene una tarjeta RFID vinculada.</summary>
+public sealed record EstadoTarjetaRfidResponse(bool TieneTarjetaRfidAsignada);
+
+public enum ResultadoConfigurarTarjetaRfid
+{
+    Configurada,
+    CredencialesInvalidas,
+    UidInvalido,
+    UsuarioNoEncontrado,
+    SinPermiso,
+    ServicioNoConfigurado
+}
+
+public enum ResultadoEliminarTarjetaRfid
+{
+    Eliminada,
+    CredencialesInvalidas,
+    UsuarioNoEncontrado,
+    SinPermiso
+}
 
 /// <summary>Datos necesarios para cambiar la contraseña de un usuario.</summary>
 public sealed record CambiarContrasenaRequest

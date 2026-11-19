@@ -1,18 +1,39 @@
 //Liberia de iconos para la cabecera
-import {Bell, Menu, User} from "lucide-react";
+import {Bell, Menu, User, X} from "lucide-react";
 import { useEffect, useState } from "react";
 //Liberia para determinar la ubicacion dentro de la pagina web
 import {Link, useLocation} from "react-router-dom";
 //Libreria para navegar al inicio de sesion desde la cabecera
 import { useNavigate } from "react-router-dom";
-import { cerrarSesion, obtenerUsuarioSesion } from '../utils/usuarioSesion'
+import { cerrarSesion, obtenerUsuarioSesion, tieneNivelPermiso } from '../utils/usuarioSesion'
+import { useAutoRefresh } from '../hooks/useAutoRefresh'
+
+type HistorialNotificacion = {
+    id: number
+    fecha: string
+    hora: string
+    usuario: string
+    resultado: string
+}
+
+type IncidenteNotificacion = {
+    idIncidente: number
+    tipo: string
+    descripcion: string
+    estado: string
+    fecha: string
+    hora: string
+}
+
+const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000'
 
 //Constante para determinar el nombre a mostrar en la cabecera dependiendo de la ubicacion dentro de la pagina web
 const pageName: Record<string, string> = {
     //Se hace referencia a las rutas dentro de app.tsx las cuales hacen uso del dashboard y la sidebar
     '/inicio': 'Inicio',
     '/usuarios': 'Usuarios',
-    '/eventos': 'Citas / Eventos',
+    '/roles': 'Roles',
+    '/eventos': 'Eventos',
     '/historial': 'Historial',
     '/incidentes': 'Incidentes',
     '/perfil': 'Perfil',
@@ -26,6 +47,11 @@ export function Header({ alAbrirMenu }: HeaderProps){
     //Constante para determinar la ubicacion actual en la pagina
     const location = useLocation();
     const [usuario, setUsuario] = useState(obtenerUsuarioSesion)
+    const [notificacionesAbiertas, setNotificacionesAbiertas] = useState(false)
+    const [actividadReciente, setActividadReciente] = useState<HistorialNotificacion[]>([])
+    const [incidentesRecientes, setIncidentesRecientes] = useState<IncidenteNotificacion[]>([])
+    const [cargandoNotificaciones, setCargandoNotificaciones] = useState(false)
+    const [errorNotificaciones, setErrorNotificaciones] = useState('')
 
     useEffect(() => {
         function actualizarUsuario() {
@@ -35,10 +61,66 @@ export function Header({ alAbrirMenu }: HeaderProps){
         window.addEventListener('smartlock.usuario.actualizado', actualizarUsuario)
         return () => window.removeEventListener('smartlock.usuario.actualizado', actualizarUsuario)
     }, [])
+
+    useEffect(() => {
+        setNotificacionesAbiertas(false)
+    }, [location.pathname])
+
+    async function cargarNotificaciones() {
+        setErrorNotificaciones('')
+        try {
+            const [respuestaHistorial, respuestaIncidentes] = await Promise.all([
+                fetch(`${apiUrl}/api/historial`),
+                fetch(`${apiUrl}/api/incidentes`),
+            ])
+            if (!respuestaHistorial.ok || !respuestaIncidentes.ok) {
+                throw new Error('No se pudieron cargar las notificaciones recientes.')
+            }
+
+            const [historial, incidentes] = await Promise.all([
+                respuestaHistorial.json() as Promise<HistorialNotificacion[]>,
+                respuestaIncidentes.json() as Promise<IncidenteNotificacion[]>,
+            ])
+            setActividadReciente(historial
+                .sort((a, b) => `${b.fecha}T${b.hora}`.localeCompare(`${a.fecha}T${a.hora}`))
+                .slice(0, 4))
+            setIncidentesRecientes(incidentes
+                .sort((a, b) => `${b.fecha}T${b.hora}`.localeCompare(`${a.fecha}T${a.hora}`))
+                .slice(0, 4))
+        } catch (error) {
+            setErrorNotificaciones(error instanceof Error
+                ? error.message
+                : 'No se pudieron cargar las notificaciones recientes.')
+        } finally {
+            setCargandoNotificaciones(false)
+        }
+    }
+
+    useAutoRefresh(
+        () => notificacionesAbiertas ? cargarNotificaciones() : undefined,
+        10_000,
+        notificacionesAbiertas && tieneNivelPermiso(usuario, [1, 2]),
+    )
+
+    function alternarNotificaciones() {
+        if (notificacionesAbiertas) {
+            setNotificacionesAbiertas(false)
+            return
+        }
+
+        setCargandoNotificaciones(true)
+        setErrorNotificaciones('')
+        setNotificacionesAbiertas(true)
+    }
+
+    function fechaHoraVisible(fecha: string, hora: string) {
+        const [anio, mes, dia] = fecha.split('-')
+        return `${dia}/${mes}/${anio} · ${hora}`
+    }
     
     //Constante que determina basandose en la ubicacion actual el nombre a mostrar en la cabecera
     const currentPage = location.pathname.startsWith('/eventos/')
-        ? 'Citas / Eventos'
+        ? 'Eventos'
         : pageName[location.pathname] ?? 'Error';
     
     //Constantes para determinar si el menu de usuario esta abierto o cerrado
@@ -68,9 +150,84 @@ export function Header({ alAbrirMenu }: HeaderProps){
                 </div>
             </div>
             <div className="flex shrink-0 items-center gap-1 sm:gap-4">
-                <button className="rounded-lg p-2 text-slate-500 transition-colors hover:bg-gray-100 hover:text-slate-800">
-                    <Bell className="w-5 h-5" />
-                </button>
+                {tieneNivelPermiso(usuario, [1, 2]) && (
+                <div className="relative">
+                    <button
+                        type="button"
+                        onClick={() => void alternarNotificaciones()}
+                        aria-label="Notificaciones"
+                        aria-expanded={notificacionesAbiertas}
+                        aria-controls="notificaciones-recientes"
+                        className="rounded-lg p-2 text-slate-500 transition-colors hover:bg-gray-100 hover:text-slate-800"
+                    >
+                        <Bell className="w-5 h-5" />
+                    </button>
+                    {notificacionesAbiertas && (
+                        <section
+                            id="notificaciones-recientes"
+                            aria-label="Notificaciones recientes"
+                            className="absolute right-0 top-full z-50 mt-2 max-h-[75vh] w-80 max-w-[calc(100vw-1.5rem)] overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl"
+                        >
+                            <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+                                <h2 className="font-semibold text-slate-800">Notificaciones</h2>
+                                <button
+                                    type="button"
+                                    onClick={() => setNotificacionesAbiertas(false)}
+                                    aria-label="Cerrar notificaciones"
+                                    className="rounded-md p-1 text-slate-500 hover:bg-slate-100"
+                                >
+                                    <X size={18} />
+                                </button>
+                            </div>
+                            {cargandoNotificaciones ? (
+                                <p role="status" className="px-4 py-5 text-sm text-slate-500">Cargando actividad reciente...</p>
+                            ) : errorNotificaciones ? (
+                                <p role="alert" className="px-4 py-5 text-sm text-rose-600">{errorNotificaciones}</p>
+                            ) : (
+                                <>
+                                    <section className="border-b border-slate-100 px-4 py-3">
+                                        <div className="mb-2 flex items-center justify-between gap-2">
+                                            <h3 className="text-sm font-semibold text-slate-700">Actividad reciente</h3>
+                                            <Link to="/historial" onClick={() => setNotificacionesAbiertas(false)} className="text-xs font-medium text-orange-600 hover:text-orange-700">Ver historial</Link>
+                                        </div>
+                                        {actividadReciente.length === 0 ? (
+                                            <p className="text-sm text-slate-500">No hay actividad registrada.</p>
+                                        ) : (
+                                            <ul className="space-y-2">
+                                                {actividadReciente.map((actividad) => (
+                                                    <li key={actividad.id} className="min-w-0">
+                                                        <p className="truncate text-sm text-slate-700">Acceso {actividad.resultado.toLowerCase()} · {actividad.usuario}</p>
+                                                        <time className="text-xs text-slate-400">{fechaHoraVisible(actividad.fecha, actividad.hora)}</time>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        )}
+                                    </section>
+                                    <section className="px-4 py-3">
+                                        <div className="mb-2 flex items-center justify-between gap-2">
+                                            <h3 className="text-sm font-semibold text-slate-700">Incidentes recientes</h3>
+                                            <Link to="/incidentes" onClick={() => setNotificacionesAbiertas(false)} className="text-xs font-medium text-orange-600 hover:text-orange-700">Ver incidentes</Link>
+                                        </div>
+                                        {incidentesRecientes.length === 0 ? (
+                                            <p className="text-sm text-slate-500">No hay incidentes registrados.</p>
+                                        ) : (
+                                            <ul className="space-y-2">
+                                                {incidentesRecientes.map((incidente) => (
+                                                    <li key={incidente.idIncidente} className="min-w-0">
+                                                        <p className="truncate text-sm text-slate-700">{incidente.tipo} · {incidente.estado}</p>
+                                                        <p className="truncate text-xs text-slate-500">{incidente.descripcion}</p>
+                                                        <time className="text-xs text-slate-400">{fechaHoraVisible(incidente.fecha, incidente.hora)}</time>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        )}
+                                    </section>
+                                </>
+                            )}
+                        </section>
+                    )}
+                </div>
+                )}
 
                 <div className="relative">
                     {/* Contenedor para el boton de perfil de usuario */} 
@@ -87,10 +244,15 @@ export function Header({ alAbrirMenu }: HeaderProps){
                         <div className="absolute right-0 top-full z-50 mt-2 w-48 rounded-lg border border-gray-200 bg-white p-2 shadow-lg">
                             <span className="block w-full border-b border-gray-200 pb-2 text-center text-base font-medium text-slate-700">{usuario?.nombreUsuario ?? 'Usuario'}</span>
                             <span className="block w-full truncate border-b border-gray-200 px-2 py-2 text-center text-xs text-slate-500">{usuario?.rol ?? 'Sin rol asignado'}</span>
-                            <Link 
-                            to="/perfil"
-                            onClick={() => setIsMenuOpen(false)}
-                            className="block rounded px-3 py-2 text-sm text-slate-600 hover:bg-gray-100">Perfil</Link>
+                            {tieneNivelPermiso(usuario, [0, 1, 2]) && (
+                                <Link
+                                    to="/perfil"
+                                    onClick={() => setIsMenuOpen(false)}
+                                    className="block rounded px-3 py-2 text-sm text-slate-600 hover:bg-gray-100"
+                                >
+                                    Perfil
+                                </Link>
+                            )}
                             <button
                              type="button"
                              onClick={handleLogout}

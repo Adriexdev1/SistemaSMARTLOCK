@@ -1,9 +1,10 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useState, type FormEvent } from 'react'
 import { Pencil, Plus, Trash2 } from 'lucide-react'
 import BarraBusqueda from '../components/componentesPaginas/BarraBusqueda'
 import SelectorCamposBusqueda, { type CampoBusqueda } from '../components/componentesPaginas/SelectorCamposBusqueda'
 import DataTable from '../components/TablaBase'
 import Paginacion from '../components/PieTabla'
+import { useAutoRefresh } from '../hooks/useAutoRefresh'
 
 type Rol = {
   id: number
@@ -62,6 +63,13 @@ async function leerMensajeError(respuesta: Response) {
   }
 }
 
+async function solicitarRoles(): Promise<Rol[]> {
+  const respuesta = await fetch(`${apiUrl}/api/roles`)
+  if (!respuesta.ok) throw new Error(await leerMensajeError(respuesta))
+  const datos = await respuesta.json() as RolApi[]
+  return datos.map(adaptarRol)
+}
+
 export default function Roles() {
   const [roles, setRoles] = useState<Rol[]>([])
   const [cargando, setCargando] = useState(true)
@@ -76,14 +84,11 @@ export default function Roles() {
   const [rolAEliminar, setRolAEliminar] = useState<Rol | null>(null)
   const [borrador, setBorrador] = useState({ nombre: '', descripcion: '', permiso: 0, estado: 1 })
 
-  async function cargarRoles() {
-    setCargando(true)
+  async function recargarRoles(mostrarCarga = true) {
+    if (mostrarCarga) setCargando(true)
     setError('')
     try {
-      const respuesta = await fetch(`${apiUrl}/api/roles`)
-      if (!respuesta.ok) throw new Error(await leerMensajeError(respuesta))
-      const datos = await respuesta.json() as RolApi[]
-      setRoles(datos.map(adaptarRol))
+      setRoles(await solicitarRoles())
     } catch (errorCarga) {
       setError(errorCarga instanceof Error ? errorCarga.message : 'No se pudo conectar con la API.')
     } finally {
@@ -91,9 +96,7 @@ export default function Roles() {
     }
   }
 
-  useEffect(() => {
-    void cargarRoles()
-  }, [])
+  useAutoRefresh(() => recargarRoles(false))
 
   const rolesFiltrados = roles.filter((rol) => {
     const valores: Record<string, string> = {
@@ -154,7 +157,7 @@ export default function Roles() {
 
       setRolEditado(null)
       setModalAbierto(false)
-      await cargarRoles()
+      await recargarRoles()
     } catch {
       setError('No se pudo conectar con la API.')
     } finally {

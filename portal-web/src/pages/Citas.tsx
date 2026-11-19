@@ -1,8 +1,7 @@
 import { Eye, QrCode, Pencil, Trash, Plus, X } from "lucide-react"
 import { QRCodeSVG } from 'qrcode.react'
 import { useNavigate } from 'react-router-dom'
-import { useCitas } from '../contexts/CitasContext'
-import type { Cita } from '../contexts/CitasContext'
+import { useCitas, type Cita } from '../contexts/CitasContextState'
 //Importacion de tabla base
 import DataTable  from "../components/TablaBase"
 //Importacion de pie de tabla
@@ -12,21 +11,37 @@ import { useState, type FormEvent } from "react"
 //Importacion de la barra de busqueda
 import BarraBusqueda from "../components/componentesPaginas/BarraBusqueda"
 import SelectorCamposBusqueda, { type CampoBusqueda } from "../components/componentesPaginas/SelectorCamposBusqueda"
+import { crearContenidoQrPuerta } from '../utils/codigoQrPuerta'
 
 const coloresEstado: Record<Cita['estado'], string> = {
   Activo: 'bg-emerald-100 text-emerald-700',
-  Completado: 'bg-blue-100 text-blue-700',
+  Inactivo: 'bg-rose-100 text-rose-700',
 }
 
 const camposBusquedaEvento: CampoBusqueda[] = [
   { clave: 'id', etiqueta: 'ID' },
-  { clave: 'fecha', etiqueta: 'Fecha' },
+  { clave: 'fecha', etiqueta: 'Fecha de inicio' },
+  { clave: 'fechaFin', etiqueta: 'Fecha fin' },
   { clave: 'hora', etiqueta: 'Hora de inicio' },
-  { clave: 'horaFin', etiqueta: 'Hora de cierre' },
+  { clave: 'horaFin', etiqueta: 'Hora fin' },
   { clave: 'descripcion', etiqueta: 'Descripción' },
   { clave: 'participantes', etiqueta: 'Participantes' },
   { clave: 'estado', etiqueta: 'Estado' },
 ]
+
+function fechaActualLocal() {
+  const fecha = new Date()
+  const anio = fecha.getFullYear()
+  const mes = String(fecha.getMonth() + 1).padStart(2, '0')
+  const dia = String(fecha.getDate()).padStart(2, '0')
+  return `${anio}-${mes}-${dia}`
+}
+
+function fechaTabla(fecha: string) {
+  if (!fecha) return '—'
+  const [anio, mes, dia] = fecha.split('-')
+  return `${dia}/${mes}/${anio}`
+}
 
 function crearColumnasCitas(
   verCita: (cita: Cita) => void,
@@ -36,25 +51,22 @@ function crearColumnasCitas(
 ) {
   return [
     {
-      header: 'ID', width: '6%', render: (cita: Cita) => <span className="font-mono font-semibold">{cita.id}</span>,
+      header: 'ID', width: '7%', render: (cita: Cita) => <span className="font-mono font-semibold">{cita.id}</span>,
     },
     {
-      header: 'Fecha', width: '11%',
-      render: (cita: Cita) => {
-        const [anio, mes, dia] = cita.fecha.split('-')
-        return <span className="font-mono text-slate-500">{dia}/{mes}/{anio}</span>
-      },
+      header: 'Fecha inicio', width: '13%',
+      render: (cita: Cita) => <span className="font-mono whitespace-nowrap text-slate-500">{fechaTabla(cita.fecha)}</span>,
     },
-    { header: 'Hora', width: '8%', render: (cita: Cita) => <span className="font-mono font-semibold">{cita.hora}</span> },
+    { header: 'Hora inicio', width: '9%', render: (cita: Cita) => <span className="font-mono font-semibold whitespace-nowrap">{cita.hora}</span> },
+    {
+      header: 'Fecha fin', width: '13%',
+      render: (cita: Cita) => <span className="font-mono whitespace-nowrap text-slate-500">{fechaTabla(cita.fechaFin)}</span>,
+    },
+    { header: 'Hora fin', width: '9%', render: (cita: Cita) => <span className="font-mono font-semibold whitespace-nowrap">{cita.horaFin}</span> },
     { header: 'Descripción', width: '15%', render: (cita: Cita) => <span className="font-mono text-slate-500">{cita.tipo}</span> },
-    { header: 'Participantes', width: '26%', render: (cita: Cita) => <span className="font-semibold text-slate-800">{cita.participantes.map((participante) => participante.nombre).join(', ') || 'Sin participantes'}</span> },
-    { header: 'Estado', width: '11%', render: (cita: Cita) => <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${coloresEstado[cita.estado]}`}>{cita.estado}</span> },
-    { header: 'QR', width: '10%', render: (cita: Cita) => {
-      const generados = cita.participantes.filter((participante) => participante.qr !== 'Pendiente').length
-      return <span className={`text-xs font-semibold ${generados === cita.participantes.length && generados > 0 ? 'text-emerald-700' : 'text-amber-700'}`}>{generados}/{cita.participantes.length} listos</span>
-    }},
+    { header: 'Estado', width: '12%', render: (cita: Cita) => <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${coloresEstado[cita.estado]}`}>{cita.estado}</span> },
     {
-      header: 'Acciones', width: '13%',
+      header: 'Acciones', width: '22%',
       render: (cita: Cita) => (
         <div className="flex items-center gap-1">
           <button type="button" onClick={() => verCita(cita)} aria-label={`Ver cita ${cita.id}`} className="flex h-8 w-8 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100"><Eye size={16} /></button>
@@ -84,7 +96,14 @@ export default function Citas(){
   const [guardando, setGuardando] = useState(false)
   const [errorAccion, setErrorAccion] = useState('')
   const [modalNuevoAbierto, setModalNuevoAbierto] = useState(false)
-  const [nuevoAcceso, setNuevoAcceso] = useState({ idUsuarios: [] as string[], tipo: '', fecha: '', hora: '', horaFin: '' })
+  const [nuevoAcceso, setNuevoAcceso] = useState({
+    idUsuarios: [] as string[],
+    tipo: '',
+    fechaInicio: fechaActualLocal(),
+    hora: '',
+    fechaFin: fechaActualLocal(),
+    horaFin: '',
+  })
   const [busqueda, setBusqueda] = useState('')
   const [camposBusqueda, setCamposBusqueda] = useState<string[]>(() => camposBusquedaEvento.map((campo) => campo.clave))
   const [estado, setEstado] = useState('Todos')
@@ -97,6 +116,7 @@ export default function Citas(){
     const valores: Record<string, string> = {
       id: String(cita.id),
       fecha: `${cita.fecha} ${fechaLegible}`,
+      fechaFin: cita.fechaFin,
       hora: cita.hora,
       horaFin: cita.horaFin,
       descripcion: cita.tipo,
@@ -139,6 +159,17 @@ export default function Citas(){
 
   async function registrarAcceso(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault()
+    const inicio = Date.parse(`${nuevoAcceso.fechaInicio}T${nuevoAcceso.hora}:00`)
+    const fin = Date.parse(`${nuevoAcceso.fechaFin}T${nuevoAcceso.horaFin}:00`)
+    if (!Number.isFinite(inicio) || !Number.isFinite(fin)) {
+      setErrorAccion('Selecciona la fecha y hora de inicio y terminación.')
+      return
+    }
+    if (fin < inicio) {
+      setErrorAccion('La fecha y hora de terminación no puede ser anterior al inicio.')
+      return
+    }
+
     const idUsuarios = [...new Set(nuevoAcceso.idUsuarios.map(Number))]
     if (idUsuarios.length === 0) {
       setErrorAccion('Selecciona al menos un usuario.')
@@ -150,12 +181,14 @@ export default function Citas(){
     try {
       await agregarCita({
         tipo: nuevoAcceso.tipo,
-        fecha: nuevoAcceso.fecha,
+        fecha: nuevoAcceso.fechaInicio,
+        fechaFin: nuevoAcceso.fechaFin,
         hora: nuevoAcceso.hora,
         horaFin: nuevoAcceso.horaFin,
         estado: 'Activo',
       }, idUsuarios)
-      setNuevoAcceso({ idUsuarios: [], tipo: '', fecha: '', hora: '', horaFin: '' })
+      const hoy = fechaActualLocal()
+      setNuevoAcceso({ idUsuarios: [], tipo: '', fechaInicio: hoy, hora: '', fechaFin: hoy, horaFin: '' })
       setModalNuevoAbierto(false)
     } catch (error) {
       setErrorAccion(error instanceof Error ? error.message : 'No se pudo guardar el acceso.')
@@ -193,10 +226,10 @@ export default function Citas(){
       <section className="mb-5 flex flex-wrap items-center justify-between gap-4">
         <div>
         <h2 className="text-xl font-semibold text-slate-900">
-          Citas/Accesos
+          Eventos
         </h2>
         <p className="mt-1 text-sm text-slate-500">
-          Gestiona los accesos programados
+          Gestiona los eventos programados
         </p>
       </div>
 
@@ -204,13 +237,15 @@ export default function Citas(){
         type="button"
         onClick={() => {
           setErrorAccion('')
+          const hoy = fechaActualLocal()
+          setNuevoAcceso({ idUsuarios: [], tipo: '', fechaInicio: hoy, hora: '', fechaFin: hoy, horaFin: '' })
           setModalNuevoAbierto(true)
         }}
         disabled={cargando || usuarios.length === 0}
         className="inline-flex items-center gap-2 rounded-md bg-amber-500 px-4 py-2 font-medium text-slate-950 hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
       >
         <Plus size={18} aria-hidden="true" />
-        Nuevo acceso
+        Nuevo evento
       </button>
     </section>
     {errorCarga && <p role="alert" className="mb-4 rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{errorCarga}</p>}
@@ -221,7 +256,7 @@ export default function Citas(){
         setBusqueda(valor)
         setPaginaActual(1)
       }}
-      placeholder="Buscar cita..."
+      placeholder="Buscar evento..."
     >
       <SelectorCamposBusqueda
         campos={camposBusquedaEvento}
@@ -255,7 +290,7 @@ export default function Citas(){
       >
         <option>Todos</option>
         <option>Activo</option>
-        <option>Completado</option>
+        <option>Inactivo</option>
       </select>
     </BarraBusqueda>
 
@@ -264,6 +299,7 @@ export default function Citas(){
         columns={columnasCitas}
         rows={cargando ? [] : citasPagina}
         getRowKey={(cita) => String(cita.id)}
+        minWidth={1000}
         footer={
           <Paginacion
             paginaActual={pagina}
@@ -286,7 +322,7 @@ export default function Citas(){
         className="max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-5 shadow-xl">
           
         <h2 id="nuevo-acceso-titulo" className="text-lg font-semibold text-slate-900">
-          Nuevo acceso
+          Nuevo evento
         </h2>
 
       <form onSubmit={registrarAcceso} className="mt-5 space-y-4">
@@ -310,7 +346,7 @@ export default function Citas(){
         </label>
 
         <label className="block text-sm text-slate-600">
-          Tipo de acceso
+          Tipo de evento
           <input
             required
             value={nuevoAcceso.tipo}
@@ -322,13 +358,32 @@ export default function Citas(){
         </label>
 
         <label className="block text-sm text-slate-600">
-          Fecha
+          Fecha de inicio
           <input
             required
             type="date"
-            value={nuevoAcceso.fecha}
+            value={nuevoAcceso.fechaInicio}
+            onChange={(evento) => {
+              const fechaInicio = evento.target.value
+              setNuevoAcceso((actual) => ({
+                ...actual,
+                fechaInicio,
+                fechaFin: actual.fechaFin < fechaInicio ? fechaInicio : actual.fechaFin,
+              }))
+            }}
+            className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3"
+          />
+        </label>
+
+        <label className="block text-sm text-slate-600">
+          Fecha de terminación
+          <input
+            required
+            type="date"
+            min={nuevoAcceso.fechaInicio}
+            value={nuevoAcceso.fechaFin}
             onChange={(evento) =>
-              setNuevoAcceso({ ...nuevoAcceso, fecha: evento.target.value })
+              setNuevoAcceso({ ...nuevoAcceso, fechaFin: evento.target.value })
             }
             className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3"
           />
@@ -349,11 +404,12 @@ export default function Citas(){
           </label>
 
           <label className="block text-sm text-slate-600">
-            Hora de fin
+            Hora de terminación
             <input
               required
               type="time"
               value={nuevoAcceso.horaFin}
+              min={nuevoAcceso.fechaFin === nuevoAcceso.fechaInicio ? nuevoAcceso.hora : undefined}
               onChange={(evento) =>
                 setNuevoAcceso({ ...nuevoAcceso, horaFin: evento.target.value })
               }
@@ -378,7 +434,7 @@ export default function Citas(){
             disabled={guardando || usuarios.length === 0}
             className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950 disabled:cursor-wait disabled:opacity-60"
           >
-            {guardando ? 'Guardando...' : 'Crear acceso'}
+            {guardando ? 'Guardando...' : 'Crear evento'}
           </button>
         </div>
       </form>
@@ -409,7 +465,7 @@ export default function Citas(){
                   </div>
                   {participante.qr === 'Pendiente' && <button type="button" disabled={guardando} onClick={() => void generarQrParticipante(citaQr, participante.idDetalleEvento)} className="rounded-md bg-amber-500 px-3 py-2 text-sm font-semibold text-slate-950 disabled:opacity-60">{guardando ? 'Generando...' : 'Generar QR'}</button>}
                 </div>
-                {participante.qrToken && <div className="mt-3 flex flex-col items-center gap-2 border-t border-slate-100 pt-3"><QRCodeSVG value={participante.qrToken} size={176} level="M" includeMargin /><p className="break-all text-center font-mono text-xs text-slate-500">{participante.qrToken}</p></div>}
+                {participante.qrToken && <div className="mt-3 flex flex-col items-center gap-2 border-t border-slate-100 pt-3"><QRCodeSVG value={crearContenidoQrPuerta(participante.idDetalleEvento, participante.qrToken)} size={176} level="M" includeMargin /><p className="break-all text-center font-mono text-xs text-slate-500">{crearContenidoQrPuerta(participante.idDetalleEvento, participante.qrToken)}</p></div>}
               </article>
             ))}
             {citaQr.participantes.length === 0 && <p className="py-5 text-center text-sm text-slate-500">Este evento no tiene participantes asignados.</p>}

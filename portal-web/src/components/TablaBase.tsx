@@ -13,6 +13,7 @@ type DataTableProps<T> = {
   rows: T[]
   getRowKey: (row: T) => string
   footer?: ReactNode
+  minWidth?: number
 }
 
 export default function DataTable<T>({
@@ -20,12 +21,13 @@ export default function DataTable<T>({
   rows,
   getRowKey,
   footer,
+  minWidth = 760,
 }: DataTableProps<T>) {
   return (
     //Definicion de estructura de la tabla
     <div className="w-full overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
       {/*La tabla mantiene un ancho legible y se desplaza horizontalmente en teléfonos*/}
-      <table className="w-full min-w-[760px] table-fixed text-left text-sm">
+      <table style={{ minWidth }} className="w-full table-fixed text-left text-sm">
         <thead className="bg-slate-50 text-xs uppercase text-slate-500">
           <tr>
             {columns.map((column) => (

@@ -11,7 +11,8 @@ internal sealed record UsuarioCredencial(
     string? Contrasena,
     int EstadoUsuario,
     string? Rol,
-    string? PinHash);
+    string? TarjetaHash,
+    int? PermisoRol);
 
 public sealed class AuthRepositorio(IConfiguration configuration)
 {
@@ -29,7 +30,8 @@ public sealed class AuthRepositorio(IConfiguration configuration)
                 u.contrasena_usuario,
                 u.estado_usuario,
                 u.pin_usuario,
-                r.nombre_rol
+                r.nombre_rol,
+                r.permiso_rol
             FROM usuarios u
             LEFT JOIN roles r ON r.id_rol = u.id_rol
             WHERE u.correo_usuario = @Correo;
@@ -61,7 +63,10 @@ public sealed class AuthRepositorio(IConfiguration configuration)
                 : lector.GetString(lector.GetOrdinal("nombre_rol")),
             lector.IsDBNull(lector.GetOrdinal("pin_usuario"))
                 ? null
-                : lector.GetString(lector.GetOrdinal("pin_usuario")));
+                : lector.GetString(lector.GetOrdinal("pin_usuario")),
+            lector.IsDBNull(lector.GetOrdinal("permiso_rol"))
+                ? null
+                : lector.GetInt32(lector.GetOrdinal("permiso_rol")));
     }
 
     internal async Task<UsuarioCredencial?> BuscarPorIdAsync(int idUsuario, CancellationToken cancellationToken)
@@ -75,7 +80,8 @@ public sealed class AuthRepositorio(IConfiguration configuration)
                 u.contrasena_usuario,
                 u.estado_usuario,
                 u.pin_usuario,
-                r.nombre_rol
+                r.nombre_rol,
+                r.permiso_rol
             FROM usuarios u
             LEFT JOIN roles r ON r.id_rol = u.id_rol
             WHERE u.id_usuario = @IdUsuario;
@@ -99,7 +105,8 @@ public sealed class AuthRepositorio(IConfiguration configuration)
             lector.IsDBNull(lector.GetOrdinal("contrasena_usuario")) ? null : lector.GetString(lector.GetOrdinal("contrasena_usuario")),
             lector.GetInt32(lector.GetOrdinal("estado_usuario")),
             lector.IsDBNull(lector.GetOrdinal("nombre_rol")) ? null : lector.GetString(lector.GetOrdinal("nombre_rol")),
-            lector.IsDBNull(lector.GetOrdinal("pin_usuario")) ? null : lector.GetString(lector.GetOrdinal("pin_usuario")));
+            lector.IsDBNull(lector.GetOrdinal("pin_usuario")) ? null : lector.GetString(lector.GetOrdinal("pin_usuario")),
+            lector.IsDBNull(lector.GetOrdinal("permiso_rol")) ? null : lector.GetInt32(lector.GetOrdinal("permiso_rol")));
     }
 
     internal async Task ActualizarContrasenaAsync(
@@ -171,7 +178,7 @@ public sealed class AuthRepositorio(IConfiguration configuration)
         return await comando.ExecuteNonQueryAsync(cancellationToken) > 0;
     }
 
-    internal async Task<bool> GuardarPinHashAsync(int idUsuario, string pinHash, CancellationToken cancellationToken)
+    internal async Task<bool> GuardarTarjetaHashAsync(int idUsuario, string tarjetaHash, CancellationToken cancellationToken)
     {
         await using var conexion = new SqlConnection(_cadenaConexion);
         await using var comando = new SqlCommand("SP_GUARDAR_PIN_USUARIO", conexion)
@@ -180,7 +187,7 @@ public sealed class AuthRepositorio(IConfiguration configuration)
         };
 
         comando.Parameters.Add("@id_usuario", System.Data.SqlDbType.Int).Value = idUsuario;
-        comando.Parameters.Add("@pin_hash", System.Data.SqlDbType.VarChar, 100).Value = pinHash;
+        comando.Parameters.Add("@pin_hash", System.Data.SqlDbType.VarChar, 100).Value = tarjetaHash;
         var resultado = comando.Parameters.Add("@resultado", System.Data.SqlDbType.Bit);
         resultado.Direction = System.Data.ParameterDirection.Output;
 
@@ -189,7 +196,7 @@ public sealed class AuthRepositorio(IConfiguration configuration)
         return resultado.Value is bool actualizado && actualizado;
     }
 
-    internal async Task<bool> EliminarPinAsync(int idUsuario, CancellationToken cancellationToken)
+    internal async Task<bool> EliminarTarjetaRfidAsync(int idUsuario, CancellationToken cancellationToken)
     {
         await using var conexion = new SqlConnection(_cadenaConexion);
         await using var comando = new SqlCommand("SP_ELIMINAR_PIN_USUARIO", conexion)

@@ -1,68 +1,13 @@
-import { createContext, useContext, useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Outlet } from 'react-router-dom'
-
-export type EstadoCita = 'Activo' | 'Completado'
-export type EstadoQr = 'Generado' | 'Pendiente' | 'Utilizado'
-
-export type AccesoCita = {
-  id: number
-  fecha: string
-  hora: string
-  resultado: string
-}
-
-export type ParticipanteCita = {
-  idDetalleEvento: number
-  idUsuario: number
-  nombre: string
-  qr: EstadoQr
-  qrToken: string
-  historial: AccesoCita[]
-}
-
-export type Cita = {
-  id: number
-  fecha: string
-  hora: string
-  horaFin: string
-  tipo: string
-  estado: EstadoCita
-  participantes: ParticipanteCita[]
-}
-
-export type UsuarioAcceso = { id: number; nombre: string }
-
-type EventoApi = {
-  idEvento: number
-  tipo: string
-  fecha: string
-  hora: string
-  horaFin: string
-  estado: EstadoCita
-  participantes: {
-    idDetalleEvento: number
-    idUsuario: number
-    nombreUsuario: string
-    estadoQr: EstadoQr
-    codigoQr: string | null
-    historial: AccesoCita[]
-  }[]
-}
-
-type UsuarioApi = { idUsuario: number; nombreUsuario: string; estadoUsuario: number }
-
-type CitasContextValue = {
-  citas: Cita[]
-  usuarios: UsuarioAcceso[]
-  cargando: boolean
-  error: string
-  agregarCita: (cita: Omit<Cita, 'id' | 'participantes'>, idUsuarios: number[]) => Promise<void>
-  actualizarCita: (citaActualizada: Cita) => Promise<void>
-  eliminarCita: (id: number) => Promise<void>
-  agregarParticipante: (idEvento: number, idUsuario: number) => Promise<void>
-  eliminarParticipante: (idEvento: number, idDetalleEvento: number) => Promise<void>
-  generarQr: (idDetalleEvento: number) => Promise<string>
-}
+import {
+  CitasContext,
+  type Cita,
+  type EventoApi,
+  type UsuarioApi,
+  type UsuarioAcceso,
+} from './CitasContextState'
+import { useAutoRefresh } from '../hooks/useAutoRefresh'
 
 const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000'
 
@@ -86,6 +31,7 @@ function adaptarEvento(evento: EventoApi): Cita {
   return {
     id: evento.idEvento,
     fecha: evento.fecha,
+    fechaFin: evento.fechaFin,
     hora: evento.hora,
     horaFin: evento.horaFin,
     tipo: evento.tipo,
@@ -101,44 +47,37 @@ function adaptarEvento(evento: EventoApi): Cita {
   }
 }
 
-const CitasContext = createContext<CitasContextValue | null>(null)
-
 export function CitasProvider() {
   const [citas, setCitas] = useState<Cita[]>([])
   const [usuarios, setUsuarios] = useState<UsuarioAcceso[]>([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')
 
-  useEffect(() => {
-    async function cargarDatos() {
-      setCargando(true)
-      setError('')
-      try {
-        const [respuestaEventos, respuestaUsuarios] = await Promise.all([
-          fetch(`${apiUrl}/api/eventos`),
-          fetch(`${apiUrl}/api/usuarios`),
-        ])
-        if (!respuestaEventos.ok || !respuestaUsuarios.ok) {
-          throw new Error('No se pudieron cargar los accesos y usuarios.')
-        }
-
-        const [eventos, usuariosApi] = await Promise.all([
-          respuestaEventos.json() as Promise<EventoApi[]>,
-          respuestaUsuarios.json() as Promise<UsuarioApi[]>,
-        ])
-        setCitas(eventos.map(adaptarEvento))
-        setUsuarios(usuariosApi
-          .filter((usuario) => usuario.estadoUsuario === 1)
-          .map((usuario) => ({ id: usuario.idUsuario, nombre: usuario.nombreUsuario })))
-      } catch (errorCarga) {
-        setError(errorCarga instanceof Error ? errorCarga.message : 'No se pudo conectar con la API.')
-      } finally {
-        setCargando(false)
+  useAutoRefresh(async () => {
+    setError('')
+    try {
+      const [respuestaEventos, respuestaUsuarios] = await Promise.all([
+        fetch(`${apiUrl}/api/eventos`),
+        fetch(`${apiUrl}/api/usuarios`),
+      ])
+      if (!respuestaEventos.ok || !respuestaUsuarios.ok) {
+        throw new Error('No se pudieron cargar los accesos y usuarios.')
       }
-    }
 
-    void cargarDatos()
-  }, [])
+      const [eventos, usuariosApi] = await Promise.all([
+        respuestaEventos.json() as Promise<EventoApi[]>,
+        respuestaUsuarios.json() as Promise<UsuarioApi[]>,
+      ])
+      setCitas(eventos.map(adaptarEvento))
+      setUsuarios(usuariosApi
+        .filter((usuario) => usuario.estadoUsuario === 1)
+        .map((usuario) => ({ id: usuario.idUsuario, nombre: usuario.nombreUsuario })))
+    } catch (errorCarga) {
+      setError(errorCarga instanceof Error ? errorCarga.message : 'No se pudo conectar con la API.')
+    } finally {
+      setCargando(false)
+    }
+  })
 
   async function agregarCita(nuevaCita: Omit<Cita, 'id' | 'participantes'>, idUsuarios: number[]) {
     const respuesta = await fetch(`${apiUrl}/api/eventos`, {
@@ -147,7 +86,8 @@ export function CitasProvider() {
       body: JSON.stringify({
         idUsuarios,
         tipo: nuevaCita.tipo,
-        fecha: nuevaCita.fecha,
+        fechaInicio: nuevaCita.fecha,
+        fechaFin: nuevaCita.fechaFin,
         horaInicio: horaConSegundos(nuevaCita.hora),
         horaFin: horaConSegundos(nuevaCita.horaFin),
       }),
@@ -163,7 +103,8 @@ export function CitasProvider() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         tipo: citaActualizada.tipo,
-        fecha: citaActualizada.fecha,
+        fechaInicio: citaActualizada.fecha,
+        fechaFin: citaActualizada.fechaFin,
         horaInicio: horaConSegundos(citaActualizada.hora),
         horaFin: horaConSegundos(citaActualizada.horaFin),
         estado: citaActualizada.estado,
@@ -224,12 +165,4 @@ export function CitasProvider() {
       <Outlet />
     </CitasContext.Provider>
   )
-}
-
-export function useCitas() {
-  const contexto = useContext(CitasContext)
-  if (!contexto) {
-    throw new Error('useCitas debe usarse dentro de CitasProvider')
-  }
-  return contexto
 }

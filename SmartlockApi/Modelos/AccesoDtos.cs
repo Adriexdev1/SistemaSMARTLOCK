@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace SmartlockApi.Modelos
 {
     public class GenerarQrRequest
@@ -12,19 +14,29 @@ namespace SmartlockApi.Modelos
     public class ValidarAccesoRequest
     {
         public string CodigoQr { get; set; } = string.Empty;
-
-        // Opcional: si el establecimiento exige segunda capa (PIN).
-        public string? Pin { get; set; }
     }
+
+    public sealed record ValidarTarjetaRfidRequest
+    {
+        [Required, MaxLength(50)]
+        public required string Uid { get; init; }
+    }
+
+    public sealed record ValidarTarjetaRfidResponse(
+        bool Autorizado,
+        int? IdUsuario,
+        string? NombreUsuario,
+        string? NombreEvento,
+        int? IdDetalleEvento,
+        DateTime? FechaAcceso);
+
     public enum ResultadoAcceso
     {
         Autorizado,
         QrInexistente,
         QrYaUsado,
         QrExpirado,
-        EventoInactivo,
-        PinIncorrecto,
-        PinRequeridoNoConfigurado
+        EventoInactivo
     }
     public class ValidarAccesoResponse
     {

@@ -6,7 +6,7 @@ using SmartlockApi.Modelos;
 
 namespace SmartlockApi.Servicios;
 
-public sealed class AuthService(AuthRepositorio repositorio) : IAuthService
+public sealed class AuthService(AuthRepositorio repositorio, RfidCardHasher tarjetaHasher) : IAuthService
 {
     public async Task<LoginResponse?> AutenticarAsync(LoginRequest request, CancellationToken cancellationToken)
     {
@@ -20,28 +20,53 @@ public sealed class AuthService(AuthRepositorio repositorio) : IAuthService
             usuario.CorreoUsuario,
             usuario.TelefonoUsuario,
             usuario.Rol,
-            !string.IsNullOrEmpty(usuario.PinHash));
+            RfidCardHasher.EsHashDeTarjeta(usuario.TarjetaHash),
+            usuario.PermisoRol);
     }
 
-    public async Task<bool> ConfigurarPinAsync(ConfigurarPinRequest request, CancellationToken cancellationToken)
+    public async Task<ResultadoConfigurarTarjetaRfid> ConfigurarTarjetaRfidAsync(
+        ConfigurarTarjetaRfidRequest request,
+        CancellationToken cancellationToken)
     {
         UsuarioCredencial? usuario = await repositorio.BuscarPorIdAsync(request.IdUsuario, cancellationToken);
-        if (usuario is null || !await ValidarContrasenaAsync(usuario, request.ContrasenaActual, cancellationToken))
-            return false;
+        if (usuario is null)
+            return ResultadoConfigurarTarjetaRfid.UsuarioNoEncontrado;
+        if (usuario.PermisoRol != 2)
+            return ResultadoConfigurarTarjetaRfid.SinPermiso;
 
-        return await repositorio.GuardarPinHashAsync(
+        if (!tarjetaHasher.EstaConfigurado)
+            return ResultadoConfigurarTarjetaRfid.ServicioNoConfigurado;
+
+        if (!tarjetaHasher.TryHashUid(request.Uid, out string hashTarjeta))
+            return ResultadoConfigurarTarjetaRfid.UidInvalido;
+
+        if (!await ValidarContrasenaAsync(usuario, request.ContrasenaActual, cancellationToken))
+            return ResultadoConfigurarTarjetaRfid.CredencialesInvalidas;
+
+        bool guardada = await repositorio.GuardarTarjetaHashAsync(
             usuario.IdUsuario,
-            PasswordHasher.Hash(request.Pin),
+            hashTarjeta,
             cancellationToken);
+        return guardada
+            ? ResultadoConfigurarTarjetaRfid.Configurada
+            : ResultadoConfigurarTarjetaRfid.UsuarioNoEncontrado;
     }
 
-    public async Task<bool> EliminarPinAsync(EliminarPinRequest request, CancellationToken cancellationToken)
+    public async Task<ResultadoEliminarTarjetaRfid> EliminarTarjetaRfidAsync(
+        EliminarTarjetaRfidRequest request,
+        CancellationToken cancellationToken)
     {
         UsuarioCredencial? usuario = await repositorio.BuscarPorIdAsync(request.IdUsuario, cancellationToken);
-        if (usuario is null || !await ValidarContrasenaAsync(usuario, request.ContrasenaActual, cancellationToken))
-            return false;
+        if (usuario is null)
+            return ResultadoEliminarTarjetaRfid.UsuarioNoEncontrado;
+        if (usuario.PermisoRol != 2)
+            return ResultadoEliminarTarjetaRfid.SinPermiso;
+        if (!await ValidarContrasenaAsync(usuario, request.ContrasenaActual, cancellationToken))
+            return ResultadoEliminarTarjetaRfid.CredencialesInvalidas;
 
-        return await repositorio.EliminarPinAsync(usuario.IdUsuario, cancellationToken);
+        return await repositorio.EliminarTarjetaRfidAsync(usuario.IdUsuario, cancellationToken)
+            ? ResultadoEliminarTarjetaRfid.Eliminada
+            : ResultadoEliminarTarjetaRfid.UsuarioNoEncontrado;
     }
 
     public async Task<bool> CambiarContrasenaAsync(

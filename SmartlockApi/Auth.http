@@ -1,4 +1,5 @@
 @baseUrl = http://localhost:5000
+@rfidDeviceKey = {{$dotenv SMARTLOCK_RFID_DEVICE_API_KEY}}
 
 ### Inicio de sesión con un usuario existente y activo
 POST {{baseUrl}}/api/auth/login
@@ -18,23 +19,32 @@ Content-Type: application/json
   "contrasena": "incorrecta"
 }
 
-### Configurar o cambiar el PIN (requiere contraseña actual)
-POST {{baseUrl}}/api/auth/pin
+### Vincular o cambiar la tarjeta RFID (requiere contraseña actual)
+POST {{baseUrl}}/api/auth/tarjeta-rfid
 Content-Type: application/json
 
 {
   "idUsuario": 1,
   "contrasenaActual": "Clave123",
-  "pin": "4826"
+  "uid": "A1 B2 C3 D4"
 }
 
-### Quitar el PIN (requiere contraseña actual)
-DELETE {{baseUrl}}/api/auth/pin
+### Quitar la tarjeta RFID (requiere contraseña actual)
+DELETE {{baseUrl}}/api/auth/tarjeta-rfid
 Content-Type: application/json
 
 {
   "idUsuario": 1,
   "contrasenaActual": "Clave123"
+}
+
+### Validar una tarjeta en el lector
+POST {{baseUrl}}/api/acceso/validar-rfid
+Content-Type: application/json
+X-Smartlock-Device-Key: {{rfidDeviceKey}}
+
+{
+  "uid": "A1 B2 C3 D4"
 }
 
 ### Cambiar contraseña (requiere la contraseña actual)

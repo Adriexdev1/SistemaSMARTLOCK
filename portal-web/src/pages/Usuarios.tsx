@@ -1,5 +1,5 @@
 //Libreria para realizar cambios en la informacion mostrada al realizar busquedas
-import { useEffect, useState, type FormEvent } from "react"
+import { useState, type FormEvent } from "react"
 //Importacion de la barra de busqueda
 import BarraBusqueda from "../components/componentesPaginas/BarraBusqueda"
 import SelectorCamposBusqueda, { type CampoBusqueda } from "../components/componentesPaginas/SelectorCamposBusqueda"
@@ -8,6 +8,7 @@ import DataTable  from "../components/TablaBase"
 import { Eye, Pencil, Plus, Trash2 } from 'lucide-react'
 //Importacion de pie de tabla
 import Paginacion from "../components/PieTabla"
+import { useAutoRefresh } from '../hooks/useAutoRefresh'
 
 //Variable con los campos de datos definidos para usuarios
 type Usuario = {
@@ -17,16 +18,13 @@ type Usuario = {
     correo: string
     telefono: string | null
     fechaNacimiento: string
-    tienePinConfigurado: boolean
+    tieneTarjetaRfidAsignada: boolean
     idRol: number | null
     rol: string
     estado: 'Activo' | 'Inactivo'| 'Suspendido'
 }
 
-type UsuarioBorrador = Usuario & {
-  pin: string
-  quitarPin: boolean
-}
+type UsuarioBorrador = Usuario
 
 type Rol = { id: number; nombre: string }
 type UsuarioApi = {
@@ -35,7 +33,7 @@ type UsuarioApi = {
   correoUsuario: string
   telefonoUsuario: string | null
   fechaNacimiento: string | null
-  tienePinConfigurado: boolean
+  tieneTarjetaRfidAsignada: boolean
   idRol: number | null
   rol: string | null
   estadoUsuario: number
@@ -61,7 +59,7 @@ function adaptarUsuario(usuario: UsuarioApi): Usuario {
     correo: usuario.correoUsuario,
     telefono: usuario.telefonoUsuario,
     fechaNacimiento: usuario.fechaNacimiento?.slice(0, 10) ?? '',
-    tienePinConfigurado: usuario.tienePinConfigurado,
+    tieneTarjetaRfidAsignada: usuario.tieneTarjetaRfidAsignada,
     idRol: usuario.idRol,
     rol: usuario.rol ?? 'Sin rol asignado',
     estado: usuario.estadoUsuario === 1
@@ -211,7 +209,6 @@ export default function Usuarios(){
       correo: '',
       telefono: '',
       fechaNacimiento: '',
-      pin: '',
       idRol: '',
       contrasena: '',
     })
@@ -229,42 +226,36 @@ export default function Usuarios(){
     const [paginaActual, setPaginaActual] = useState(1)
     const tamanoPagina = 5
 
-    useEffect(() => {
-      async function cargarDatos() {
-        setCargando(true)
-        setErrorApi('')
+    useAutoRefresh(async () => {
+      setErrorApi('')
+      try {
+        const [respuestaUsuarios, respuestaRoles] = await Promise.all([
+          fetch(`${apiUrl}/api/usuarios`),
+          fetch(`${apiUrl}/api/usuarios/roles`),
+        ])
 
-        try {
-          const [respuestaUsuarios, respuestaRoles] = await Promise.all([
-            fetch(`${apiUrl}/api/usuarios`),
-            fetch(`${apiUrl}/api/usuarios/roles`),
-          ])
-
-          if (!respuestaUsuarios.ok || !respuestaRoles.ok) {
-            throw new Error('No se pudieron cargar usuarios y roles desde la API.')
-          }
-
-          const [usuariosApi, rolesApi] = await Promise.all([
-            respuestaUsuarios.json() as Promise<UsuarioApi[]>,
-            respuestaRoles.json() as Promise<{ idRol: number; nombreRol: string }[]>,
-          ])
-
-          setUsuarios(usuariosApi.map(adaptarUsuario))
-          const rolesDisponibles = rolesApi.map((rol) => ({ id: rol.idRol, nombre: rol.nombreRol }))
-          setRoles(rolesDisponibles)
-          setNuevoUsuario((actual) => ({
-            ...actual,
-            idRol: actual.idRol || String(rolesDisponibles[0]?.id ?? ''),
-          }))
-        } catch (error) {
-          setErrorApi(error instanceof Error ? error.message : 'Error al conectar con la API.')
-        } finally {
-          setCargando(false)
+        if (!respuestaUsuarios.ok || !respuestaRoles.ok) {
+          throw new Error('No se pudieron cargar usuarios y roles desde la API.')
         }
-      }
 
-      void cargarDatos()
-    }, [])
+        const [usuariosApi, rolesApi] = await Promise.all([
+          respuestaUsuarios.json() as Promise<UsuarioApi[]>,
+          respuestaRoles.json() as Promise<{ idRol: number; nombreRol: string }[]>,
+        ])
+
+        setUsuarios(usuariosApi.map(adaptarUsuario))
+        const rolesDisponibles = rolesApi.map((rol) => ({ id: rol.idRol, nombre: rol.nombreRol }))
+        setRoles(rolesDisponibles)
+        setNuevoUsuario((actual) => ({
+          ...actual,
+          idRol: actual.idRol || String(rolesDisponibles[0]?.id ?? ''),
+        }))
+      } catch (error) {
+        setErrorApi(error instanceof Error ? error.message : 'Error al conectar con la API.')
+      } finally {
+        setCargando(false)
+      }
+    })
     
     const usuariosFiltrados = usuarios.filter((usuario) => {
         const terminos = normalizar(busqueda).split(/\s+/).filter(Boolean)
@@ -314,7 +305,6 @@ export default function Usuarios(){
             correoUsuario: nuevoUsuario.correo.trim(),
             telefonoUsuario: nuevoUsuario.telefono.trim() || null,
             fechaNacimiento: nuevoUsuario.fechaNacimiento,
-            pin: nuevoUsuario.pin.trim() || null,
             contrasena: nuevoUsuario.contrasena,
             idRol: nuevoUsuario.idRol ? Number(nuevoUsuario.idRol) : null,
           }),
@@ -336,7 +326,6 @@ export default function Usuarios(){
           correo: '',
           telefono: '',
           fechaNacimiento: '',
-          pin: '',
           idRol: String(roles[0]?.id ?? ''),
           contrasena: '',
         })
@@ -356,7 +345,7 @@ export default function Usuarios(){
     //Funcion para cargar los datos actuales en el formulario de edicion
     function iniciarEdicionUsuario(usuario: Usuario) {
       setUsuarioSeleccionado(usuario)
-      setBorradorUsuario({ ...usuario, pin: '', quitarPin: false })
+      setBorradorUsuario({ ...usuario })
       setModoUsuario('editar')
     }
 
@@ -377,8 +366,6 @@ export default function Usuarios(){
             correoUsuario: borradorUsuario.correo.trim(),
             telefonoUsuario: borradorUsuario.telefono?.trim() || null,
             fechaNacimiento: borradorUsuario.fechaNacimiento,
-            pin: borradorUsuario.pin.trim() || null,
-            quitarPin: borradorUsuario.quitarPin,
             idRol: borradorUsuario.idRol,
             estadoUsuario: estadoAApi(borradorUsuario.estado),
           }),
@@ -394,11 +381,6 @@ export default function Usuarios(){
           nombre: borradorUsuario.nombre.trim(),
           correo: borradorUsuario.correo.trim(),
           telefono: borradorUsuario.telefono?.trim() || null,
-          tienePinConfigurado: borradorUsuario.pin.trim()
-            ? true
-            : borradorUsuario.quitarPin
-              ? false
-              : borradorUsuario.tienePinConfigurado,
           iniciales: obtenerIniciales(borradorUsuario.nombre),
           rol: roles.find((rol) => rol.id === borradorUsuario.idRol)?.nombre ?? 'Sin rol asignado',
         }
@@ -467,7 +449,6 @@ export default function Usuarios(){
             correo: '',
             telefono: '',
             fechaNacimiento: '',
-            pin: '',
             idRol: String(roles[0]?.id ?? ''),
             contrasena: '',
           })
@@ -574,23 +555,6 @@ export default function Usuarios(){
             value={nuevoUsuario.fechaNacimiento}
             onChange={(evento) =>
               setNuevoUsuario({ ...nuevoUsuario, fechaNacimiento: evento.target.value })
-            }
-            className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3"
-          />
-        </label>
-
-        <label className="block text-sm text-slate-600">
-          PIN de acceso <span className="text-slate-400">(opcional, 4 a 8 dígitos)</span>
-          <input
-            type="password"
-            inputMode="numeric"
-            autoComplete="new-password"
-            maxLength={8}
-            pattern="[0-9]{4,8}"
-            title="El PIN debe tener entre 4 y 8 dígitos."
-            value={nuevoUsuario.pin}
-            onChange={(evento) =>
-              setNuevoUsuario({ ...nuevoUsuario, pin: evento.target.value })
             }
             className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3"
           />
@@ -724,9 +688,9 @@ export default function Usuarios(){
                     <dd className="mt-1 font-medium text-slate-800">{usuarioSeleccionado.fechaNacimiento || 'Sin fecha registrada'}</dd>
                   </div>
                   <div>
-                    <dt className="text-slate-500">PIN de acceso</dt>
+                    <dt className="text-slate-500">Tarjeta RFID</dt>
                     <dd className="mt-1 font-medium text-slate-800">
-                      {usuarioSeleccionado.tienePinConfigurado ? 'Configurado' : 'Sin PIN'}
+                      {usuarioSeleccionado.tieneTarjetaRfidAsignada ? 'Vinculada' : 'Sin tarjeta vinculada'}
                     </dd>
                   </div>
                   <div>
@@ -778,31 +742,6 @@ export default function Usuarios(){
                       onChange={(evento) => setBorradorUsuario({ ...borradorUsuario, fechaNacimiento: evento.target.value })}
                       className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3"
                     />
-                  </label>
-                  <label className="block text-sm text-slate-600">
-                    Nuevo PIN <span className="text-slate-400">(opcional, 4 a 8 dígitos)</span>
-                    <input
-                      type="password"
-                      inputMode="numeric"
-                      autoComplete="new-password"
-                      maxLength={8}
-                      pattern="[0-9]{4,8}"
-                      title="El PIN debe tener entre 4 y 8 dígitos."
-                      value={borradorUsuario.pin}
-                      disabled={borradorUsuario.quitarPin}
-                      onChange={(evento) => setBorradorUsuario({ ...borradorUsuario, pin: evento.target.value })}
-                      className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 disabled:bg-slate-100"
-                    />
-                  </label>
-                  <label className="flex items-center gap-2 text-sm text-slate-600">
-                    <input
-                      type="checkbox"
-                      checked={borradorUsuario.quitarPin}
-                      disabled={Boolean(borradorUsuario.pin)}
-                      onChange={(evento) => setBorradorUsuario({ ...borradorUsuario, quitarPin: evento.target.checked })}
-                      className="h-4 w-4 rounded border-slate-300"
-                    />
-                    Quitar PIN existente
                   </label>
                   <label className="block text-sm text-slate-600">
                     Rol

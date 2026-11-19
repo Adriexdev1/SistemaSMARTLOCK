@@ -1,4 +1,3 @@
-import { LockKeyhole } from "lucide-react";
 //Importacion para las rutas
 import { Outlet } from "react-router-dom";
 
@@ -20,9 +19,7 @@ export default function AuthLayout(){
 
                 {/*Contenedor del icono*/}
                 <div className="relative flex items-center gap-3">
-                    <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-500 text-slate-950">
-                        <LockKeyhole size={22} />
-                    </span>
+                    <img src="/logo-smartlock.png" alt="" className="h-11 w-11 object-contain" />
                     <span className="text-lg font-bold">SMARTLOCK</span>
                 </div>
 
@@ -41,7 +38,7 @@ export default function AuthLayout(){
                     
                     <p className="mt-4 max-w-md text-slate-300">
                         Gestiona empleados, visitas y eventos de seguridad mediante
-                        códigos QR y autenticación por PIN.
+                        códigos QR y tarjetas NFC/RFID.
                     </p>
                 </div>
 

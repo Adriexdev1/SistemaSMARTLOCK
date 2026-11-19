@@ -9,7 +9,7 @@ public sealed record UsuarioResponse(
     string CorreoUsuario,
     string? TelefonoUsuario,
     DateTime? FechaNacimiento,
-    bool TienePinConfigurado,
+    bool TieneTarjetaRfidAsignada,
     int? IdRol,
     string? Rol,
     int EstadoUsuario);
@@ -32,9 +32,6 @@ public sealed record CrearUsuarioRequest
     [Required]
     public DateTime? FechaNacimiento { get; init; }
 
-    [MaxLength(8), RegularExpression(@"^$|^\d{4,8}$")]
-    public string? Pin { get; init; }
-
     [Required, MinLength(8), MaxLength(100)]
     public required string Contrasena { get; init; }
 
@@ -55,11 +52,6 @@ public sealed record ActualizarUsuarioRequest
 
     [Required]
     public DateTime? FechaNacimiento { get; init; }
-
-    [MaxLength(8), RegularExpression(@"^$|^\d{4,8}$")]
-    public string? Pin { get; init; }
-
-    public bool QuitarPin { get; init; }
 
     public int? IdRol { get; init; }
 

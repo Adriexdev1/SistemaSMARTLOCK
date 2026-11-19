@@ -1,8 +1,8 @@
 namespace SmartlockApi.Modelos;
 
-/// <summary>Acceso completado registrado en el sistema.</summary>
+/// <summary>Acceso autorizado o rechazado registrado en el sistema.</summary>
 public sealed record HistorialResponse(
-    int Id,
+    long Id,
     string Fecha,
     string Hora,
     string Usuario,

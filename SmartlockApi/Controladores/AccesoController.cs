@@ -1,3 +1,6 @@
+using System.Security.Cryptography;
+using System.Text;
+using Microsoft.Data.SqlClient;
 using Microsoft.AspNetCore.Mvc;
 using SmartlockApi.Datos;
 using SmartlockApi.Modelos;
@@ -10,11 +13,22 @@ namespace SmartlockApi.Controladores
     public class AccesoController : ControllerBase
     {
         private readonly AccesoRepositorio _repo;
+        private readonly AccesoRfidRepositorio _rfidRepo;
+        private readonly RfidCardHasher _tarjetaHasher;
+        private readonly IConfiguration _configuration;
         private readonly ILogger<AccesoController> _logger;
 
-        public AccesoController(AccesoRepositorio repo, ILogger<AccesoController> logger)
+        public AccesoController(
+            AccesoRepositorio repo,
+            AccesoRfidRepositorio rfidRepo,
+            RfidCardHasher tarjetaHasher,
+            IConfiguration configuration,
+            ILogger<AccesoController> logger)
         {
             _repo = repo;
+            _rfidRepo = rfidRepo;
+            _tarjetaHasher = tarjetaHasher;
+            _configuration = configuration;
             _logger = logger;
         }
 
@@ -24,13 +38,6 @@ namespace SmartlockApi.Controladores
         {
             var codigo = await _repo.GenerarQrAsync(request.IdDetalleEvento);
             return Ok(new GenerarQrResponse { CodigoQr = codigo });
-        }
-
-        // Endpoint TEMPORAL solo para pruebas genera el hash de un PIN
-        [HttpGet("hash-pin/{pin}")]
-        public ActionResult<string> HashPin(string pin)
-        {
-            return Ok(PasswordHasher.Hash(pin));
         }
 
         [HttpPost("validar")]
@@ -60,27 +67,7 @@ namespace SmartlockApi.Controladores
                 });
             }
 
-            string? pinHash = await _repo.ObtenerPinHashAsync(idUsuario);
-
-            if (!string.IsNullOrEmpty(pinHash))
-            {
-                if (string.IsNullOrWhiteSpace(request.Pin) ||
-                    !PasswordHasher.Verificar(request.Pin, pinHash))
-                {
-                    _logger.LogWarning("Acceso rechazado por PIN incorrecto. Usuario={Usuario} QR={Qr}", idUsuario, request.CodigoQr);
-
-                    return Ok(new ValidarAccesoResponse
-                    {
-                        Autorizado = false,
-                        Resultado = ResultadoAcceso.PinIncorrecto,
-                        NombreUsuario = nombreUsuario,
-                        NombreEvento = nombreEvento
-                    });
-                }
-            }
-
-            string metodoAcceso = string.IsNullOrEmpty(pinHash) ? "Solo QR" : "QR + PIN";
-            bool consumido = await _repo.ConsumirQrAsync(request.CodigoQr, metodoAcceso);
+            bool consumido = await _repo.ConsumirQrAsync(request.CodigoQr, "Solo QR");
 
             if (!consumido)
             {
@@ -104,6 +91,57 @@ namespace SmartlockApi.Controladores
                 NombreEvento = nombreEvento,
                 FechaAcceso = DateTime.Now
             });
+        }
+
+        [HttpPost("validar-rfid")]
+        [ProducesResponseType<ValidarTarjetaRfidResponse>(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
+        public async Task<ActionResult<ValidarTarjetaRfidResponse>> ValidarTarjetaRfid(
+            [FromBody] ValidarTarjetaRfidRequest request,
+            CancellationToken cancellationToken)
+        {
+            string? claveDispositivo = _configuration["Rfid:DeviceApiKey"]
+                ?? Environment.GetEnvironmentVariable("SMARTLOCK_RFID_DEVICE_API_KEY");
+            if (string.IsNullOrWhiteSpace(claveDispositivo) || Encoding.UTF8.GetByteCount(claveDispositivo) < 32)
+                return StatusCode(StatusCodes.Status503ServiceUnavailable,
+                    new { mensaje = "La autenticación del lector RFID no está configurada." });
+
+            string claveRecibida = Request.Headers["X-Smartlock-Device-Key"].ToString();
+            if (!CryptographicOperations.FixedTimeEquals(
+                Encoding.UTF8.GetBytes(claveRecibida),
+                Encoding.UTF8.GetBytes(claveDispositivo)))
+            {
+                return Unauthorized();
+            }
+
+            if (!_tarjetaHasher.EstaConfigurado)
+                return StatusCode(StatusCodes.Status503ServiceUnavailable,
+                    new { mensaje = "El servicio de tarjetas RFID no está configurado." });
+
+            if (!_tarjetaHasher.TryHashUid(request.Uid, out string hashTarjeta))
+                return BadRequest(new { mensaje = "El UID debe contener 4, 7 o 10 bytes en hexadecimal." });
+
+            try
+            {
+                AccesoRfidRegistrado? registro = await _rfidRepo.RegistrarAsync(hashTarjeta, cancellationToken);
+                return Ok(registro is null
+                    ? new ValidarTarjetaRfidResponse(false, null, null, null, null, null)
+                    : new ValidarTarjetaRfidResponse(
+                        true,
+                        registro.IdUsuario,
+                        registro.NombreUsuario,
+                        "Acceso permanente RFID",
+                        registro.IdDetalleEvento,
+                        registro.FechaAcceso));
+            }
+            catch (SqlException exception)
+            {
+                _logger.LogError(exception, "No se pudo registrar el acceso RFID.");
+                return StatusCode(StatusCodes.Status503ServiceUnavailable,
+                    new { mensaje = "No se pudo validar la tarjeta RFID en la base de datos." });
+            }
         }
     }
 }

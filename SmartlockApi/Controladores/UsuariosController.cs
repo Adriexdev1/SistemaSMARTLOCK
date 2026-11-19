@@ -31,7 +31,7 @@ public sealed class UsuariosController(IUsuariosService usuariosService) : Contr
         return usuario is null ? NotFound() : Ok(usuario);
     }
 
-    /// <summary>Crea un usuario activo y almacena su contraseña y PIN como hashes.</summary>
+    /// <summary>Crea un usuario activo y almacena su contraseña como hash.</summary>
     [HttpPost]
     [ProducesResponseType<UsuarioResponse>(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]

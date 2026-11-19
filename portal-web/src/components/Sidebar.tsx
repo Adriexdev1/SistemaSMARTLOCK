@@ -1,10 +1,10 @@
     //Liberia de herramientas para navegacion en la pagina web
     import {Link, useLocation} from 'react-router-dom'
     //Liberia de iconos para la barra lateral
-    import {House, Users, Shield, Calendar, RotateCcwClock, AlertTriangle, User, LockKeyhole,LogOut} from 'lucide-react'
+    import {House, Users, Shield, Calendar, RotateCcwClock, AlertTriangle, User, LogOut} from 'lucide-react'
     //Libreria para navegacion en la pagina web
     import { useNavigate } from 'react-router-dom'
-    import { cerrarSesion } from '../utils/usuarioSesion'
+    import { cerrarSesion, obtenerUsuarioSesion, tieneNivelPermiso } from '../utils/usuarioSesion'
 
     //Funcion para la barra lateral de la pagina web
     type SidebarProps = {
@@ -17,15 +17,21 @@
         const location = useLocation()
         
         //Funcion con todos los elementos del menu de la barra lateral de la pagina web
-        const menuItems = [
+        const usuario = obtenerUsuarioSesion()
+        const todosLosItems = [
             { name: 'Inicio', path: '/inicio', icon: House },
             { name: 'Usuarios', path: '/usuarios', icon: Users },
             { name: 'Roles', path: '/roles', icon: Shield },
-            { name: 'Citas / Eventos', path: '/eventos', icon: Calendar },
+            { name: 'Eventos', path: '/eventos', icon: Calendar },
             { name: 'Historial', path: '/historial', icon: RotateCcwClock },
             { name: 'Incidentes', path: '/incidentes', icon: AlertTriangle },
             { name: 'Perfil', path: '/perfil', icon: User },
         ]
+        const menuItems = todosLosItems.filter((item) =>
+            tieneNivelPermiso(usuario, [2]) ||
+            (tieneNivelPermiso(usuario, [1]) && !['/usuarios', '/roles'].includes(item.path)) ||
+            (tieneNivelPermiso(usuario, [0]) && item.path === '/perfil'),
+        )
 
         //Constante para volver al inicio de sesion
         const navigate = useNavigate()
@@ -54,7 +60,7 @@
                 <div>
                     {/*Contenedor para el titulo de la barra lateral*/}
                     <div className="flex items-center gap-3 px-6 py-5 border-b border-slate-700 mb-6">
-                        <div className="w-10 h-10 bg-amber-500 px-2.5 py-1 rounded-lg font-bold text-white flex items-center justify-center shrink-10"><LockKeyhole size={32} color="black" strokeWidth={4}/></div>
+                        <img src="/logo-smartlock.png" alt="" className="h-10 w-10 shrink-0 object-contain" />
                         {/* Contenedor para el titulo y subtitulo de la barra lateral */}
                         <div className="flex flex-col">
                             <span className="font-bold text-lg text-white tracking-wide leading-none">SMARTLOCK</span>

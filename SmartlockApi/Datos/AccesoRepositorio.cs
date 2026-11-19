@@ -77,15 +77,5 @@ namespace SmartlockApi.Datos
             return "QR_INEXISTENTE";
         }
 
-        public async Task<string?> ObtenerPinHashAsync(int idUsuario)
-        {
-            await using var conn = new SqlConnection(_cadenaConexion);
-            await using var cmd = new SqlCommand("SP_OBTENER_PIN_USUARIO", conn) { CommandType = CommandType.StoredProcedure };
-            cmd.Parameters.AddWithValue("@id_usuario", idUsuario);
-
-            await conn.OpenAsync();
-            var resultado = await cmd.ExecuteScalarAsync();
-            return resultado as string;
-        }
     }
 }

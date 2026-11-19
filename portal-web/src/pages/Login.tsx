@@ -3,7 +3,7 @@ import { useState, type FormEvent } from "react"
 import { Eye, EyeOff } from "lucide-react"
 //Importacion para manejo de rutas
 import { useNavigate } from "react-router-dom"
-import { guardarUsuarioSesion, type UsuarioSesion } from '../utils/usuarioSesion'
+import { guardarUsuarioSesion, rutaInicialUsuario, type UsuarioSesion } from '../utils/usuarioSesion'
 
 export default function Login() {
   //Constantes para almacenar el valor de la navegacion, el correo, la contraseña
@@ -40,7 +40,7 @@ export default function Login() {
         ...usuario,
         contrasenaCaracteres: Array.from(contrasena).length,
       })
-      navigate('/inicio', { replace: true })
+      navigate(rutaInicialUsuario(usuario), { replace: true })
     } catch {
       setError('No se pudo conectar con la API. Verifica que esté ejecutándose.')
     } finally {
@@ -97,17 +97,6 @@ export default function Login() {
             </button>
           </span>
         </label>
-
-        {/*Seccion para opciones de recordar contraseña*/}
-        <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
-          <label className="flex items-center gap-2 text-slate-600">
-            <input type="checkbox" />
-            Recordarme
-          </label>
-          <button type="button" className="font-medium text-orange-600">
-            ¿Olvidaste tu contraseña?
-          </button>
-        </div>
 
         {error && <p role="alert" className="text-sm text-rose-600">{error}</p>}
 

@@ -37,7 +37,7 @@ public sealed class EventosController(IEventosService eventosService) : Controll
         {
             EventoResponse? evento = await eventosService.CrearAsync(request, cancellationToken);
             return evento is null
-                ? StatusCode(StatusCodes.Status500InternalServerError)
+                ? BadRequest(new { mensaje = "Ese tipo de evento está reservado para el acceso RFID." })
                 : CreatedAtAction(nameof(Obtener), new { idEvento = evento.IdEvento }, evento);
         }
         catch (SqlException exception) when (exception.Number == 547)

@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
-import { Check, KeyRound, LockKeyhole, Pencil, ShieldCheck, X } from 'lucide-react'
-import { actualizarEstadoPinSesion, actualizarLongitudContrasenaSesion, guardarUsuarioSesion, obtenerUsuarioSesion } from '../utils/usuarioSesion'
+import { Check, CreditCard, LockKeyhole, Pencil, ShieldCheck, X } from 'lucide-react'
+import { actualizarEstadoTarjetaRfidSesion, actualizarLongitudContrasenaSesion, guardarUsuarioSesion, obtenerUsuarioSesion, tieneNivelPermiso } from '../utils/usuarioSesion'
+import { useAutoRefresh } from '../hooks/useAutoRefresh'
 
 type DatosPerfil = {
     nombre: string
@@ -9,7 +10,16 @@ type DatosPerfil = {
     rol: string
 }
 
-type PanelSeguridad = 'contrasena' | 'pin' | 'eliminar-pin' | null
+type PanelSeguridad = 'contrasena' | 'tarjeta-rfid' | 'eliminar-tarjeta-rfid' | null
+type PerfilApi = {
+    nombreUsuario: string
+    correoUsuario: string
+    telefonoUsuario: string | null
+    rol: string | null
+    tieneTarjetaRfidAsignada: boolean
+}
+
+const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000'
 
 function inicialesDe(nombre: string) {
     return nombre
@@ -21,6 +31,7 @@ function inicialesDe(nombre: string) {
 }
 
 export default function Perfil() {
+    const esAdminTipo2 = tieneNivelPermiso(obtenerUsuarioSesion(), [2])
     const [perfil, setPerfil] = useState<DatosPerfil>(() => {
         const usuario = obtenerUsuarioSesion()
         return {
@@ -35,17 +46,65 @@ export default function Perfil() {
     const [contrasenaPerfil, setContrasenaPerfil] = useState('')
     const [guardandoPerfil, setGuardandoPerfil] = useState(false)
     const [errorPerfil, setErrorPerfil] = useState('')
+    const [errorCargaPerfil, setErrorCargaPerfil] = useState('')
     const [panelSeguridad, setPanelSeguridad] = useState<PanelSeguridad>(null)
     const [mensaje, setMensaje] = useState('')
-    const [errorPin, setErrorPin] = useState('')
+    const [errorTarjeta, setErrorTarjeta] = useState('')
     const [contrasenaActual, setContrasenaActual] = useState('')
     const [nuevaContrasena, setNuevaContrasena] = useState('')
-    const [nuevoPin, setNuevoPin] = useState('')
-    const [pinConfigurado, setPinConfigurado] = useState(() => Boolean(obtenerUsuarioSesion()?.tienePinConfigurado))
-    const [guardandoPin, setGuardandoPin] = useState(false)
+    const [uidTarjeta, setUidTarjeta] = useState('')
+    const [tarjetaConfigurada, setTarjetaConfigurada] = useState(() => Boolean(obtenerUsuarioSesion()?.tieneTarjetaRfidAsignada))
+    const [guardandoTarjeta, setGuardandoTarjeta] = useState(false)
     const [guardandoContrasena, setGuardandoContrasena] = useState(false)
     const [errorContrasena, setErrorContrasena] = useState('')
     const [longitudContrasena, setLongitudContrasena] = useState(() => obtenerUsuarioSesion()?.contrasenaCaracteres ?? 0)
+
+    useAutoRefresh(async () => {
+        const usuario = obtenerUsuarioSesion()
+        if (!usuario) {
+            setErrorCargaPerfil('Tu sesión terminó. Inicia sesión nuevamente.')
+            return
+        }
+
+        setErrorCargaPerfil('')
+        try {
+            const respuesta = await fetch(`${apiUrl}/api/usuarios/${usuario.idUsuario}`)
+            if (!respuesta.ok) throw new Error('No se pudo actualizar la información del perfil.')
+            const datos = await respuesta.json() as PerfilApi
+            const perfilActualizado = {
+                nombre: datos.nombreUsuario,
+                correo: datos.correoUsuario,
+                telefono: datos.telefonoUsuario ?? '',
+                rol: datos.rol ?? 'Sin rol asignado',
+            }
+            setPerfil((actual) =>
+                actual.nombre === perfilActualizado.nombre &&
+                actual.correo === perfilActualizado.correo &&
+                actual.telefono === perfilActualizado.telefono &&
+                actual.rol === perfilActualizado.rol
+                    ? actual
+                    : perfilActualizado)
+            setTarjetaConfigurada(datos.tieneTarjetaRfidAsignada)
+            if (
+                usuario.nombreUsuario !== datos.nombreUsuario ||
+                usuario.correoUsuario !== datos.correoUsuario ||
+                usuario.telefonoUsuario !== datos.telefonoUsuario ||
+                usuario.rol !== datos.rol ||
+                usuario.tieneTarjetaRfidAsignada !== datos.tieneTarjetaRfidAsignada
+            ) {
+                guardarUsuarioSesion({
+                    ...usuario,
+                    nombreUsuario: datos.nombreUsuario,
+                    correoUsuario: datos.correoUsuario,
+                    telefonoUsuario: datos.telefonoUsuario,
+                    rol: datos.rol,
+                    tieneTarjetaRfidAsignada: datos.tieneTarjetaRfidAsignada,
+                })
+            }
+        } catch (error) {
+            setErrorCargaPerfil(error instanceof Error ? error.message : 'No se pudo conectar con la API.')
+        }
+    }, 10_000, !editandoPerfil && panelSeguridad === null)
 
     async function guardarPerfil(evento: FormEvent<HTMLFormElement>) {
         evento.preventDefault()
@@ -53,7 +112,6 @@ export default function Perfil() {
         setErrorPerfil('')
 
         try {
-            const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000'
             const usuario = obtenerUsuarioSesion()
             if (!usuario) {
                 setErrorPerfil('Tu sesión terminó. Inicia sesión nuevamente.')
@@ -112,7 +170,6 @@ export default function Perfil() {
         setErrorContrasena('')
 
         try {
-            const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000'
             const usuario = obtenerUsuarioSesion()
             const respuesta = await fetch(`${apiUrl}/api/auth/password`, {
                 method: 'PUT',
@@ -145,77 +202,103 @@ export default function Perfil() {
         }
     }
 
-    async function guardarPin(evento: FormEvent<HTMLFormElement>) {
+    async function guardarTarjetaRfid(evento: FormEvent<HTMLFormElement>) {
         evento.preventDefault()
-        setGuardandoPin(true)
-        setErrorPin('')
+        if (!tieneNivelPermiso(obtenerUsuarioSesion(), [2])) {
+            setErrorTarjeta('Solo un administrador tipo 2 puede configurar tarjetas RFID.')
+            return
+        }
+        setGuardandoTarjeta(true)
+        setErrorTarjeta('')
 
         try {
-            const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000'
             const usuario = obtenerUsuarioSesion()
-            const respuesta = await fetch(`${apiUrl}/api/auth/pin`, {
+            if (!usuario) {
+                setErrorTarjeta('Tu sesión terminó. Inicia sesión nuevamente.')
+                return
+            }
+
+            const respuesta = await fetch(`${apiUrl}/api/auth/tarjeta-rfid`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    idUsuario: usuario?.idUsuario,
+                    idUsuario: usuario.idUsuario,
                     contrasenaActual,
-                    pin: nuevoPin,
+                    uid: uidTarjeta.trim(),
                 }),
             })
 
             if (!respuesta.ok) {
-                setErrorPin(respuesta.status === 401
+                setErrorTarjeta(respuesta.status === 401
                     ? 'La contraseña actual no es correcta.'
-                    : 'No se pudo guardar el PIN.')
+                    : respuesta.status === 403
+                        ? 'Solo un administrador tipo 2 puede configurar tarjetas RFID.'
+                    : respuesta.status === 400
+                        ? 'El UID debe contener 4, 7 o 10 bytes en hexadecimal.'
+                        : respuesta.status === 409
+                            ? 'Esa tarjeta ya está vinculada a otro usuario.'
+                            : respuesta.status === 503
+                                ? 'La API todavía no está configurada para tarjetas RFID.'
+                                : 'No se pudo vincular la tarjeta.')
                 return
             }
 
-            setPinConfigurado(true)
-            actualizarEstadoPinSesion(true)
+            setTarjetaConfigurada(true)
+            actualizarEstadoTarjetaRfidSesion(true)
             setPanelSeguridad(null)
             setContrasenaActual('')
-            setNuevoPin('')
-            setMensaje('El PIN se guardó de forma segura.')
+            setUidTarjeta('')
+            setMensaje('La tarjeta RFID se vinculó de forma segura.')
         } catch {
-            setErrorPin('No se pudo conectar con la API.')
+            setErrorTarjeta('No se pudo conectar con la API.')
         } finally {
-            setGuardandoPin(false)
+            setGuardandoTarjeta(false)
         }
     }
 
-    async function eliminarPin(evento: FormEvent<HTMLFormElement>) {
+    async function eliminarTarjetaRfid(evento: FormEvent<HTMLFormElement>) {
         evento.preventDefault()
-        setGuardandoPin(true)
-        setErrorPin('')
+        if (!tieneNivelPermiso(obtenerUsuarioSesion(), [2])) {
+            setErrorTarjeta('Solo un administrador tipo 2 puede configurar tarjetas RFID.')
+            return
+        }
+        setGuardandoTarjeta(true)
+        setErrorTarjeta('')
 
         try {
-            const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000'
             const usuario = obtenerUsuarioSesion()
-            const respuesta = await fetch(`${apiUrl}/api/auth/pin`, {
+            if (!usuario) {
+                setErrorTarjeta('Tu sesión terminó. Inicia sesión nuevamente.')
+                return
+            }
+
+            const respuesta = await fetch(`${apiUrl}/api/auth/tarjeta-rfid`, {
                 method: 'DELETE',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    idUsuario: usuario?.idUsuario,
+                    idUsuario: usuario.idUsuario,
                     contrasenaActual,
                 }),
             })
 
             if (!respuesta.ok) {
-                setErrorPin(respuesta.status === 401
+                setErrorTarjeta(respuesta.status === 401
                     ? 'La contraseña actual no es correcta.'
-                    : 'No se pudo quitar el PIN.')
+                    : respuesta.status === 403
+                        ? 'Solo un administrador tipo 2 puede configurar tarjetas RFID.'
+                    : 'No se pudo quitar la tarjeta.')
                 return
             }
 
-            setPinConfigurado(false)
-            actualizarEstadoPinSesion(false)
+            setTarjetaConfigurada(false)
+            actualizarEstadoTarjetaRfidSesion(false)
             setPanelSeguridad(null)
             setContrasenaActual('')
-            setMensaje('El PIN se quitó. El acceso QR no solicitará PIN.')
+            setMensaje('La tarjeta RFID se desvinculó.')
         } catch {
-            setErrorPin('No se pudo conectar con la API.')
+            setErrorTarjeta('No se pudo conectar con la API.')
         } finally {
-            setGuardandoPin(false)
+            setGuardandoTarjeta(false)
         }
     }
 
@@ -227,6 +310,7 @@ export default function Perfil() {
                 <h2 className="text-xl font-semibold text-slate-900">Mi perfil</h2>
                 <p className="mt-1 text-sm text-slate-500">Gestiona tu información personal y seguridad</p>
             </section>
+            {errorCargaPerfil && <p role="alert" className="mb-4 rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{errorCargaPerfil}</p>}
 
             <article className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
                 <section className="p-5 sm:p-7">
@@ -329,48 +413,52 @@ export default function Perfil() {
                             </button>
                         </div>
 
-                        <div className="flex flex-wrap items-center justify-between gap-4 py-5">
+                        {esAdminTipo2 && <div className="flex flex-wrap items-center justify-between gap-4 py-5">
                             <div className="flex items-start gap-3">
                                 <span className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
-                                    <KeyRound size={18} />
+                                    <CreditCard size={18} />
                                 </span>
                                 <div>
-                                    <p className="text-sm font-medium text-slate-800">PIN de acceso</p>
-                                    <p className={`mt-1 text-sm font-medium ${pinConfigurado ? 'text-emerald-600' : 'text-slate-500'}`}>
-                                        {pinConfigurado ? 'PIN habilitado' : 'Sin PIN configurado'}
+                                    <p className="text-sm font-medium text-slate-800">Tarjeta RFID</p>
+                                    <p className={`mt-1 text-sm font-medium ${tarjetaConfigurada ? 'text-emerald-600' : 'text-slate-500'}`}>
+                                        {tarjetaConfigurada ? 'Tarjeta vinculada' : 'Sin tarjeta vinculada'}
                                     </p>
                                 </div>
                             </div>
                             <button
                                 type="button"
                                 onClick={() => {
-                                    setPanelSeguridad(panelSeguridad === 'pin' ? null : 'pin')
-                                    setErrorPin('')
+                                    setPanelSeguridad(panelSeguridad === 'tarjeta-rfid' ? null : 'tarjeta-rfid')
+                                    setErrorTarjeta('')
                                     setMensaje('')
                                 }}
                                 className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-600 transition-colors hover:bg-slate-50"
                             >
-                                {pinConfigurado ? 'Cambiar PIN' : 'Configurar PIN'}
+                                {tarjetaConfigurada ? 'Cambiar tarjeta' : 'Vincular tarjeta'}
                             </button>
-                            {pinConfigurado && (
+                            {tarjetaConfigurada && (
                                 <button
                                     type="button"
                                     onClick={() => {
-                                        setPanelSeguridad(panelSeguridad === 'eliminar-pin' ? null : 'eliminar-pin')
-                                        setErrorPin('')
+                                        setPanelSeguridad(panelSeguridad === 'eliminar-tarjeta-rfid' ? null : 'eliminar-tarjeta-rfid')
+                                        setErrorTarjeta('')
                                         setMensaje('')
                                     }}
                                     className="rounded-lg border border-rose-200 px-3 py-2 text-sm text-rose-700 transition-colors hover:bg-rose-50"
                                 >
-                                    Quitar PIN
+                                    Desvincular tarjeta
                                 </button>
                             )}
-                        </div>
+                        </div>}
                     </div>
 
-                    {panelSeguridad && (
+                    {panelSeguridad && (panelSeguridad === 'contrasena' || esAdminTipo2) && (
                         <form
-                            onSubmit={panelSeguridad === 'pin' ? guardarPin : panelSeguridad === 'eliminar-pin' ? eliminarPin : guardarSeguridad}
+                            onSubmit={panelSeguridad === 'tarjeta-rfid'
+                                ? guardarTarjetaRfid
+                                : panelSeguridad === 'eliminar-tarjeta-rfid'
+                                    ? eliminarTarjetaRfid
+                                    : guardarSeguridad}
                             className="mt-2 grid gap-4 rounded-lg bg-slate-50 p-4 sm:grid-cols-2"
                         >
                             {panelSeguridad === 'contrasena' ? (
@@ -384,38 +472,38 @@ export default function Perfil() {
                                         <input required type="password" minLength={8} maxLength={100} autoComplete="new-password" value={nuevaContrasena} onChange={(evento) => setNuevaContrasena(evento.target.value)} className={campoClase} />
                                     </label>
                                 </>
-                            ) : panelSeguridad === 'pin' ? (
+                            ) : panelSeguridad === 'tarjeta-rfid' ? (
                                 <>
                                     <label className="text-sm text-slate-600 sm:col-span-2">
                                         Contraseña actual
                                         <input required type="password" autoComplete="current-password" value={contrasenaActual} onChange={(evento) => setContrasenaActual(evento.target.value)} className={campoClase} />
                                     </label>
                                     <label className="text-sm text-slate-600 sm:col-span-2">
-                                        Nuevo PIN
-                                        <input required type="password" inputMode="numeric" pattern="[0-9]{4,8}" minLength={4} maxLength={8} value={nuevoPin} onChange={(evento) => setNuevoPin(evento.target.value)} placeholder="4 a 8 dígitos" className={campoClase} />
+                                        UID de la tarjeta (copiado del monitor Serial)
+                                        <input required type="text" autoCapitalize="characters" maxLength={50} value={uidTarjeta} onChange={(evento) => setUidTarjeta(evento.target.value)} placeholder="A1 B2 C3 D4" className={campoClase} />
                                     </label>
                                 </>
                             ) : (
                                 <label className="text-sm text-slate-600 sm:col-span-2">
-                                    Confirma tu contraseña para quitar el PIN
+                                    Confirma tu contraseña para desvincular la tarjeta
                                     <input required type="password" autoComplete="current-password" value={contrasenaActual} onChange={(evento) => setContrasenaActual(evento.target.value)} className={campoClase} />
                                 </label>
                             )}
                             {panelSeguridad === 'contrasena' && errorContrasena && <p role="alert" className="text-sm text-rose-600 sm:col-span-2">{errorContrasena}</p>}
-                            {panelSeguridad !== 'contrasena' && errorPin && <p role="alert" className="text-sm text-rose-600 sm:col-span-2">{errorPin}</p>}
+                            {panelSeguridad !== 'contrasena' && errorTarjeta && <p role="alert" className="text-sm text-rose-600 sm:col-span-2">{errorTarjeta}</p>}
                             <div className="flex justify-end gap-2 sm:col-span-2">
                                 <button type="button" onClick={() => {
                                     setPanelSeguridad(null)
                                     setContrasenaActual('')
                                     setNuevaContrasena('')
                                     setErrorContrasena('')
-                                    setErrorPin('')
+                                    setErrorTarjeta('')
                                 }} className="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-600 hover:bg-white">Cancelar</button>
-                                <button type="submit" disabled={panelSeguridad === 'contrasena' ? guardandoContrasena : guardandoPin} className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-amber-400 disabled:cursor-wait disabled:opacity-60">
-                                    {(panelSeguridad === 'contrasena' ? guardandoContrasena : guardandoPin)
+                                <button type="submit" disabled={panelSeguridad === 'contrasena' ? guardandoContrasena : guardandoTarjeta} className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-amber-400 disabled:cursor-wait disabled:opacity-60">
+                                    {(panelSeguridad === 'contrasena' ? guardandoContrasena : guardandoTarjeta)
                                         ? 'Guardando...'
-                                        : panelSeguridad === 'eliminar-pin'
-                                            ? 'Quitar PIN'
+                                        : panelSeguridad === 'eliminar-tarjeta-rfid'
+                                            ? 'Desvincular tarjeta'
                                             : 'Guardar'}
                                 </button>
                             </div>

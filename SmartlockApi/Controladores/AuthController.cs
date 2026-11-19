@@ -21,34 +21,62 @@ public sealed class AuthController(IAuthService authService) : ControllerBase
         return usuario is null ? Unauthorized() : Ok(usuario);
     }
 
-    /// <summary>Configura o cambia el PIN después de verificar la contraseña actual.</summary>
-    [HttpPost("pin")]
-    [ProducesResponseType<EstadoPinResponse>(StatusCodes.Status200OK)]
+    /// <summary>Vincula o reemplaza la tarjeta RFID después de verificar la contraseña actual.</summary>
+    [HttpPost("tarjeta-rfid")]
+    [ProducesResponseType<EstadoTarjetaRfidResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<ActionResult<EstadoPinResponse>> ConfigurarPin(
-        [FromBody] ConfigurarPinRequest request,
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
+    public async Task<ActionResult<EstadoTarjetaRfidResponse>> ConfigurarTarjetaRfid(
+        [FromBody] ConfigurarTarjetaRfidRequest request,
         CancellationToken cancellationToken)
     {
-        bool actualizado = await authService.ConfigurarPinAsync(request, cancellationToken);
-        return actualizado
-            ? Ok(new EstadoPinResponse(true))
-            : Unauthorized();
+        try
+        {
+            ResultadoConfigurarTarjetaRfid resultado =
+                await authService.ConfigurarTarjetaRfidAsync(request, cancellationToken);
+            return resultado switch
+            {
+                ResultadoConfigurarTarjetaRfid.Configurada => Ok(new EstadoTarjetaRfidResponse(true)),
+                ResultadoConfigurarTarjetaRfid.CredencialesInvalidas => Unauthorized(),
+                ResultadoConfigurarTarjetaRfid.UidInvalido => BadRequest(new { mensaje = "El UID debe contener 4, 7 o 10 bytes en hexadecimal." }),
+                ResultadoConfigurarTarjetaRfid.UsuarioNoEncontrado => NotFound(),
+                ResultadoConfigurarTarjetaRfid.SinPermiso => Forbid(),
+                ResultadoConfigurarTarjetaRfid.ServicioNoConfigurado => StatusCode(
+                    StatusCodes.Status503ServiceUnavailable,
+                    new { mensaje = "El servicio de tarjetas RFID no está configurado." }),
+                _ => StatusCode(StatusCodes.Status500InternalServerError)
+            };
+        }
+        catch (Microsoft.Data.SqlClient.SqlException exception) when (exception.Number is 2601 or 2627)
+        {
+            return Conflict(new { mensaje = "Esa tarjeta ya está vinculada a otro usuario." });
+        }
     }
 
-    /// <summary>Quita el PIN después de verificar la contraseña actual.</summary>
-    [HttpDelete("pin")]
-    [ProducesResponseType<EstadoPinResponse>(StatusCodes.Status200OK)]
+    /// <summary>Quita la tarjeta RFID después de verificar la contraseña actual.</summary>
+    [HttpDelete("tarjeta-rfid")]
+    [ProducesResponseType<EstadoTarjetaRfidResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<ActionResult<EstadoPinResponse>> EliminarPin(
-        [FromBody] EliminarPinRequest request,
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<EstadoTarjetaRfidResponse>> EliminarTarjetaRfid(
+        [FromBody] EliminarTarjetaRfidRequest request,
         CancellationToken cancellationToken)
     {
-        bool actualizado = await authService.EliminarPinAsync(request, cancellationToken);
-        return actualizado
-            ? Ok(new EstadoPinResponse(false))
-            : Unauthorized();
+        ResultadoEliminarTarjetaRfid resultado =
+            await authService.EliminarTarjetaRfidAsync(request, cancellationToken);
+        return resultado switch
+        {
+            ResultadoEliminarTarjetaRfid.Eliminada => Ok(new EstadoTarjetaRfidResponse(false)),
+            ResultadoEliminarTarjetaRfid.CredencialesInvalidas => Unauthorized(),
+            ResultadoEliminarTarjetaRfid.SinPermiso => Forbid(),
+            ResultadoEliminarTarjetaRfid.UsuarioNoEncontrado => NotFound(),
+            _ => StatusCode(StatusCodes.Status500InternalServerError)
+        };
     }
 
     /// <summary>Cambia la contraseña después de verificar la contraseña actual.</summary>

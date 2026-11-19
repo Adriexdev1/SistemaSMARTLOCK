@@ -1,9 +1,10 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useState, type FormEvent } from 'react'
 import { Hammer, CircleCheck, Clock3, Eye, Plus, RefreshCw, Siren, X } from 'lucide-react'
 import CartaEstadistica from '../components/componentesPaginas/CartaEstadistica'
 import DataTable from '../components/TablaBase'
 import Paginacion from '../components/PieTabla'
 import { obtenerUsuarioSesion } from '../utils/usuarioSesion'
+import { useAutoRefresh } from '../hooks/useAutoRefresh'
 
 type EstadoIncidente = 'Pendiente' | 'En progreso' | 'Resuelto'
 type PrioridadIncidente = 'Crítica' | 'Alta' | 'Media' | 'Baja'
@@ -66,32 +67,27 @@ export default function Incidentes() {
         prioridad: 'Media' as PrioridadIncidente,
     })
 
-    useEffect(() => {
-        async function cargarIncidentes() {
-            setCargando(true)
-            setErrorApi('')
-            try {
-                const respuesta = await fetch(`${apiUrl}/api/incidentes`)
-                if (!respuesta.ok) throw new Error('No se pudieron cargar los incidentes.')
-                const datos = await respuesta.json() as IncidenteApi[]
-                setIncidentes(datos.map((incidente) => ({
-                    id: incidente.idIncidente,
-                    fecha: incidente.fecha,
-                    hora: incidente.hora,
-                    tipo: incidente.tipo,
-                    descripcion: incidente.descripcion,
-                    prioridad: incidente.prioridad,
-                    estado: incidente.estado,
-                })))
-            } catch (error) {
-                setErrorApi(error instanceof Error ? error.message : 'No se pudo conectar con la API.')
-            } finally {
-                setCargando(false)
-            }
+    useAutoRefresh(async () => {
+        setErrorApi('')
+        try {
+            const respuesta = await fetch(`${apiUrl}/api/incidentes`)
+            if (!respuesta.ok) throw new Error('No se pudieron cargar los incidentes.')
+            const datos = await respuesta.json() as IncidenteApi[]
+            setIncidentes(datos.map((incidente) => ({
+                id: incidente.idIncidente,
+                fecha: incidente.fecha,
+                hora: incidente.hora,
+                tipo: incidente.tipo,
+                descripcion: incidente.descripcion,
+                prioridad: incidente.prioridad,
+                estado: incidente.estado,
+            })))
+        } catch (error) {
+            setErrorApi(error instanceof Error ? error.message : 'No se pudo conectar con la API.')
+        } finally {
+            setCargando(false)
         }
-
-        void cargarIncidentes()
-    }, [])
+    })
 
     const tamanoPagina = 5
     const incidentesFiltrados = filtro === 'Todos'

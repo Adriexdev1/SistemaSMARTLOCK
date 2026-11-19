@@ -19,7 +19,6 @@ public sealed class UsuariosService(UsuariosRepositorio repositorio) : IUsuarios
         int idUsuario = await repositorio.CrearAsync(
             request,
             PasswordHasher.Hash(request.Contrasena),
-            CrearHashPin(request.Pin),
             cancellationToken);
 
         return await repositorio.ObtenerAsync(idUsuario, cancellationToken);
@@ -29,11 +28,8 @@ public sealed class UsuariosService(UsuariosRepositorio repositorio) : IUsuarios
         int idUsuario,
         ActualizarUsuarioRequest request,
         CancellationToken cancellationToken) =>
-        repositorio.ActualizarAsync(idUsuario, request, CrearHashPin(request.Pin), cancellationToken);
+        repositorio.ActualizarAsync(idUsuario, request, cancellationToken);
 
     public Task<bool> EliminarAsync(int idUsuario, CancellationToken cancellationToken) =>
         repositorio.EliminarAsync(idUsuario, cancellationToken);
-
-    private static string? CrearHashPin(string? pin) =>
-        string.IsNullOrWhiteSpace(pin) ? null : PasswordHasher.Hash(pin);
 }

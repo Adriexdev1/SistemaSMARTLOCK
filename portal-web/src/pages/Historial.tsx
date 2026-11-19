@@ -1,9 +1,10 @@
 import { Download } from "lucide-react"
 import Paginacion from "../components/PieTabla"
 import DataTable from "../components/TablaBase"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import FiltroHistorial, {type ValoresFiltrosHistorial} from "../components/componentesPaginas/FiltrosHistorial"
 import * as XLSX from 'xlsx'
+import { useAutoRefresh } from '../hooks/useAutoRefresh'
 
 //Definicion de estructura para tabla
 type Historial = {
@@ -69,7 +70,7 @@ const columnasHistorial = [
     width: '10%',
     render: (registro: Historial) => 
         <span className="font-mono font-semibold text-slate-700">
-        {registro.idEvento}
+        {registro.idEvento > 0 ? registro.idEvento : '—'}
         </span>
   },
   {
@@ -106,32 +107,27 @@ export default function Historial(){
     })
     const tamanoPagina = 5
 
-    useEffect(() => {
-      async function cargarHistorial() {
-        setCargando(true)
-        setError('')
-        try {
-          const respuesta = await fetch(`${apiUrl}/api/historial`)
-          if (!respuesta.ok) throw new Error('No se pudo cargar el historial.')
-          const datos = await respuesta.json() as HistorialApi[]
-          setHistorial(datos.map((registro) => ({
-            id: registro.id,
-            fecha: registro.fecha,
-            hora: registro.hora,
-            usuario: registro.usuario,
-            idEvento: registro.idEvento,
-            resultado: registro.resultado,
-            metodo_acceso: registro.metodoAcceso,
-          })))
-        } catch (errorCarga) {
-          setError(errorCarga instanceof Error ? errorCarga.message : 'No se pudo conectar con la API.')
-        } finally {
-          setCargando(false)
-        }
+    useAutoRefresh(async () => {
+      setError('')
+      try {
+        const respuesta = await fetch(`${apiUrl}/api/historial`)
+        if (!respuesta.ok) throw new Error('No se pudo cargar el historial.')
+        const datos = await respuesta.json() as HistorialApi[]
+        setHistorial(datos.map((registro) => ({
+          id: registro.id,
+          fecha: registro.fecha,
+          hora: registro.hora,
+          usuario: registro.usuario,
+          idEvento: registro.idEvento,
+          resultado: registro.resultado,
+          metodo_acceso: registro.metodoAcceso,
+        })))
+      } catch (errorCarga) {
+        setError(errorCarga instanceof Error ? errorCarga.message : 'No se pudo conectar con la API.')
+      } finally {
+        setCargando(false)
       }
-
-      void cargarHistorial()
-    }, [])
+    })
     
     const registrosFiltrados = historial.filter((registro) => {
       const cumpleFechaInicio =
@@ -164,6 +160,9 @@ export default function Historial(){
     const totalAutorizados = registrosFiltrados.filter(
         (registro) => registro.resultado === 'Autorizado'
     ).length
+    const totalRechazados = registrosFiltrados.filter(
+        (registro) => registro.resultado === 'Rechazado'
+    ).length
     //Funcion para trabajar con los datos en un excel
     function exportarHistorial() {
       const datosExcel = registrosFiltrados.map((registro) => {
@@ -194,7 +193,7 @@ export default function Historial(){
           Historial de Accesos
         </h2>
         <p className="mt-1 text-sm text-slate-500">
-          Consulta los accesos completados registrados en el sistema
+          Consulta los intentos de acceso registrados en el sistema
         </p>
       </div>
 
@@ -230,6 +229,9 @@ export default function Historial(){
         
         <span className="rounded-full bg-emerald-100 px-4 py-2 font-semibold text-emerald-700">
             {totalAutorizados} Autorizados
+        </span>
+        <span className="rounded-full bg-rose-100 px-4 py-2 font-semibold text-rose-700">
+            {totalRechazados} Rechazados
         </span>
         
     </section>

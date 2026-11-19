@@ -13,7 +13,12 @@ import Inicio from './pages/Inicio'
 import AuthLayout from './layouts/AuthLayout'
 import DetalleCita from './pages/DetalleCita'
 import { CitasProvider } from './contexts/CitasContext'
-import { obtenerUsuarioSesion } from './utils/usuarioSesion'
+import {
+  obtenerUsuarioSesion,
+  rutaInicialUsuario,
+  tieneNivelPermiso,
+  type NivelPermiso,
+} from './utils/usuarioSesion'
 
 function RequireSession() {
   return obtenerUsuarioSesion()
@@ -21,11 +26,18 @@ function RequireSession() {
     : <Navigate to="/login" replace />
 }
 
+function RequirePermission({ niveles }: { niveles: readonly NivelPermiso[] }) {
+  const usuario = obtenerUsuarioSesion()
+  return tieneNivelPermiso(usuario, niveles)
+    ? <Outlet />
+    : <Navigate to={rutaInicialUsuario(usuario)} replace />
+}
+
 export default function App() {
   return (
     <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Navigate to={obtenerUsuarioSesion() ? '/inicio' : '/login'} replace />} />
+          <Route path="/" element={<Navigate to={rutaInicialUsuario(obtenerUsuarioSesion())} replace />} />
           {/* Ruta de la pagina de inicio de sesion */}
           <Route element={<AuthLayout/>}>
              <Route path="/login" element={<Login />} />
@@ -34,16 +46,22 @@ export default function App() {
           {/* Rutas de la pagina principal del dashboard */}
           <Route element={<RequireSession />}>
           <Route element={<DashboardLayout />}>
-           <Route path="/inicio" element={<Inicio/>} />
-          <Route path="/usuarios" element={<Usuarios />} />
-          <Route path="/roles" element={<Roles />} />
-          <Route element={<CitasProvider />}>
-            <Route path="/eventos" element={<Citas />} />
-            <Route path="/eventos/:id" element={<DetalleCita />} />
+          <Route element={<RequirePermission niveles={[1, 2]} />}>
+            <Route path="/inicio" element={<Inicio/>} />
+            <Route element={<CitasProvider />}>
+              <Route path="/eventos" element={<Citas />} />
+              <Route path="/eventos/:id" element={<DetalleCita />} />
+            </Route>
+            <Route path="/historial" element={<Historial />} />
+            <Route path="/incidentes" element={<Incidentes />} />
           </Route>
-          <Route path="/historial" element={<Historial />} />
-          <Route path="/incidentes" element={<Incidentes />} />
-          <Route path="/perfil" element={<Perfil />} />
+          <Route element={<RequirePermission niveles={[2]} />}>
+            <Route path="/usuarios" element={<Usuarios />} />
+            <Route path="/roles" element={<Roles />} />
+          </Route>
+          <Route element={<RequirePermission niveles={[0, 1, 2]} />}>
+            <Route path="/perfil" element={<Perfil />} />
+          </Route>
           </Route>
           </Route>
         </Routes>

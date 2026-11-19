@@ -17,6 +17,10 @@ public sealed class EventosRepositorioMulti(IConfiguration configuration)
         FROM dbo.eventos e
         LEFT JOIN dbo.detalle_eventos de ON de.id_evento = e.id_evento
         LEFT JOIN dbo.usuarios u ON u.id_usuario = de.id_usuario
+        WHERE (
+            e.descripcion_evento IS NULL
+            OR e.descripcion_evento <> 'SMARTLOCK:RFID:PERMANENT_ACCESS:v1'
+        )
         """;
 
     public async Task<IReadOnlyList<EventoResponse>> ListarAsync(CancellationToken cancellationToken)
@@ -37,7 +41,9 @@ public sealed class EventosRepositorioMulti(IConfiguration configuration)
     {
         var eventos = new Dictionary<int, EventoAcumulado>();
         await using var conexion = new SqlConnection(_cadenaConexion);
-        await using var comando = new SqlCommand(ConsultaEventos + " WHERE e.id_evento = @IdEvento;", conexion);
+        await using var comando = new SqlCommand(
+            ConsultaEventos + " AND e.id_evento = @IdEvento;",
+            conexion);
         comando.Parameters.Add("@IdEvento", SqlDbType.Int).Value = idEvento;
         await conexion.OpenAsync(cancellationToken);
         await using var lector = await comando.ExecuteReaderAsync(cancellationToken);
@@ -89,8 +95,10 @@ public sealed class EventosRepositorioMulti(IConfiguration configuration)
         {
             await using var comandoEvento = new SqlCommand(insertarEvento, conexion, transaccion);
             comandoEvento.Parameters.Add("@Tipo", SqlDbType.VarChar, 100).Value = request.Tipo.Trim();
-            comandoEvento.Parameters.Add("@Inicio", SqlDbType.DateTime).Value = request.Fecha.ToDateTime(request.HoraInicio);
-            comandoEvento.Parameters.Add("@Fin", SqlDbType.DateTime).Value = request.Fecha.ToDateTime(request.HoraFin);
+            comandoEvento.Parameters.Add("@Inicio", SqlDbType.DateTime).Value =
+                request.FechaInicio.ToDateTime(request.HoraInicio);
+            comandoEvento.Parameters.Add("@Fin", SqlDbType.DateTime).Value =
+                request.FechaFin.ToDateTime(request.HoraFin);
             int idEvento = Convert.ToInt32(await comandoEvento.ExecuteScalarAsync(cancellationToken));
 
             foreach (int idUsuario in request.IdUsuarios.Distinct())
@@ -123,14 +131,21 @@ public sealed class EventosRepositorioMulti(IConfiguration configuration)
                 fechaprogramada_evento = @Inicio,
                 fechalimite_evento = @Fin,
                 estado_evento = @Estado
-            WHERE id_evento = @IdEvento;
+            WHERE id_evento = @IdEvento
+              AND @Tipo <> 'SMARTLOCK:RFID:PERMANENT_ACCESS:v1'
+              AND (
+                  descripcion_evento IS NULL
+                  OR descripcion_evento <> 'SMARTLOCK:RFID:PERMANENT_ACCESS:v1'
+              );
             """;
 
         await using var conexion = new SqlConnection(_cadenaConexion);
         await using var comando = new SqlCommand(consulta, conexion);
         comando.Parameters.Add("@Tipo", SqlDbType.VarChar, 100).Value = request.Tipo.Trim();
-        comando.Parameters.Add("@Inicio", SqlDbType.DateTime).Value = request.Fecha.ToDateTime(request.HoraInicio);
-        comando.Parameters.Add("@Fin", SqlDbType.DateTime).Value = request.Fecha.ToDateTime(request.HoraFin);
+        comando.Parameters.Add("@Inicio", SqlDbType.DateTime).Value =
+            request.FechaInicio.ToDateTime(request.HoraInicio);
+        comando.Parameters.Add("@Fin", SqlDbType.DateTime).Value =
+            request.FechaFin.ToDateTime(request.HoraFin);
         comando.Parameters.Add("@Estado", SqlDbType.Int).Value = request.Estado == "Activo" ? 1 : 0;
         comando.Parameters.Add("@IdEvento", SqlDbType.Int).Value = idEvento;
 
@@ -141,7 +156,15 @@ public sealed class EventosRepositorioMulti(IConfiguration configuration)
     public async Task<int> AgregarParticipanteAsync(int idEvento, int idUsuario, CancellationToken cancellationToken)
     {
         const string consulta = """
-            IF NOT EXISTS (SELECT 1 FROM dbo.eventos WHERE id_evento = @IdEvento)
+            IF NOT EXISTS (
+                SELECT 1
+                FROM dbo.eventos
+                WHERE id_evento = @IdEvento
+                  AND (
+                      descripcion_evento IS NULL
+                      OR descripcion_evento <> 'SMARTLOCK:RFID:PERMANENT_ACCESS:v1'
+                  )
+            )
                 RETURN;
 
             IF NOT EXISTS (
@@ -171,7 +194,17 @@ public sealed class EventosRepositorioMulti(IConfiguration configuration)
     {
         const string consulta = """
             DELETE FROM dbo.detalle_eventos
-            WHERE id_evento = @IdEvento AND id_detalle_evento = @IdDetalleEvento;
+            WHERE id_evento = @IdEvento
+              AND id_detalle_evento = @IdDetalleEvento
+              AND EXISTS (
+                  SELECT 1
+                  FROM dbo.eventos
+                  WHERE id_evento = @IdEvento
+                    AND (
+                        descripcion_evento IS NULL
+                        OR descripcion_evento <> 'SMARTLOCK:RFID:PERMANENT_ACCESS:v1'
+                    )
+              );
             """;
 
         await using var conexion = new SqlConnection(_cadenaConexion);
@@ -185,8 +218,21 @@ public sealed class EventosRepositorioMulti(IConfiguration configuration)
     public async Task<bool> EliminarAsync(int idEvento, CancellationToken cancellationToken)
     {
         const string consulta = """
-            DELETE FROM dbo.detalle_eventos WHERE id_evento = @IdEvento;
-            DELETE FROM dbo.eventos WHERE id_evento = @IdEvento;
+            DELETE de
+            FROM dbo.detalle_eventos de
+            INNER JOIN dbo.eventos e ON e.id_evento = de.id_evento
+            WHERE e.id_evento = @IdEvento
+              AND (
+                  e.descripcion_evento IS NULL
+                  OR e.descripcion_evento <> 'SMARTLOCK:RFID:PERMANENT_ACCESS:v1'
+              );
+
+            DELETE FROM dbo.eventos
+            WHERE id_evento = @IdEvento
+              AND (
+                  descripcion_evento IS NULL
+                  OR descripcion_evento <> 'SMARTLOCK:RFID:PERMANENT_ACCESS:v1'
+              );
             """;
 
         await using var conexion = new SqlConnection(_cadenaConexion);
@@ -252,8 +298,9 @@ public sealed class EventosRepositorioMulti(IConfiguration configuration)
             tipo,
             inicio?.ToString("yyyy-MM-dd") ?? string.Empty,
             inicio?.ToString("HH:mm") ?? string.Empty,
+            fin?.ToString("yyyy-MM-dd") ?? string.Empty,
             fin?.ToString("HH:mm") ?? string.Empty,
-            estado == 1 ? "Activo" : "Completado",
+            estado == 1 ? "Activo" : "Inactivo",
             Participantes);
     }
 }

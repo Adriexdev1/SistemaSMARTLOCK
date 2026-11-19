@@ -5,6 +5,8 @@ namespace SmartlockApi.Servicios;
 
 public sealed class EventosService(EventosRepositorioMulti repositorio) : IEventosService
 {
+    private const string MarcadorEventoPermanenteRfid = "SMARTLOCK:RFID:PERMANENT_ACCESS:v1";
+
     public Task<IReadOnlyList<EventoResponse>> ListarAsync(CancellationToken cancellationToken) =>
         repositorio.ListarAsync(cancellationToken);
 
@@ -13,12 +15,17 @@ public sealed class EventosService(EventosRepositorioMulti repositorio) : IEvent
 
     public async Task<EventoResponse?> CrearAsync(CrearEventoRequest request, CancellationToken cancellationToken)
     {
+        if (string.Equals(request.Tipo.Trim(), MarcadorEventoPermanenteRfid, StringComparison.OrdinalIgnoreCase))
+            return null;
+
         int idEvento = await repositorio.CrearAsync(request, cancellationToken);
         return await repositorio.ObtenerAsync(idEvento, cancellationToken);
     }
 
     public Task<bool> ActualizarAsync(int idEvento, ActualizarEventoRequest request, CancellationToken cancellationToken) =>
-        repositorio.ActualizarAsync(idEvento, request, cancellationToken);
+        string.Equals(request.Tipo.Trim(), MarcadorEventoPermanenteRfid, StringComparison.OrdinalIgnoreCase)
+            ? Task.FromResult(false)
+            : repositorio.ActualizarAsync(idEvento, request, cancellationToken);
 
     public async Task<(bool EventoExiste, bool Agregado)> AgregarParticipanteAsync(
         int idEvento,
