@@ -1,0 +1,12 @@
+2026/11/17-14:59:21.249 5084 Reusing MANIFEST C:\Users\Lenovo\Documents\GitHub\SistemaSMARTLOCK\whatsapp-bot\.wwebjs_auth\session-smartlock-prueba-2\Default\IndexedDB\https_web.whatsapp.com_0.indexeddb.leveldb/MANIFEST-000001
+2026/11/17-14:59:21.251 5084 Recovering log #501
+2026/11/17-14:59:21.282 5084 Reusing old log C:\Users\Lenovo\Documents\GitHub\SistemaSMARTLOCK\whatsapp-bot\.wwebjs_auth\session-smartlock-prueba-2\Default\IndexedDB\https_web.whatsapp.com_0.indexeddb.leveldb/000501.log 
+2026/11/17-14:59:33.913 260c Level-0 table #514: started
+2026/11/17-14:59:33.947 260c Level-0 table #514: 1127423 bytes OK
+2026/11/17-14:59:33.949 260c Delete type=0 #501
+2026/11/17-14:59:33.956 1fd0 Compacting 1@0 + 0@1 files
+2026/11/17-14:59:33.985 1fd0 Generated table #515@0: 26694 keys, 488769 bytes
+2026/11/17-14:59:33.992 1fd0 Generated table #516@0: 4193 keys, 112873 bytes
+2026/11/17-14:59:33.992 1fd0 Compacted 1@0 + 0@1 files => 601642 bytes
+2026/11/17-14:59:33.993 1fd0 compacted to: files[ 0 2 20 0 0 0 0 ]
+2026/11/17-14:59:33.994 1fd0 Delete type=2 #514
